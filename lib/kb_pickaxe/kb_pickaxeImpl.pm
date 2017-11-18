@@ -165,9 +165,10 @@ sub runpickaxe
         my $count =0;
         for (my $i=0; $i<@{$inputModel}; $i++){
             my @cpdId = split /_/, $inputModel->[$i]->{id};
+            $cpdId[0] =~ s/pkc/input/;
             my $altID = $inputModel->[$i]->{dblinks}->{'ModelSeed'}[0];
             if (defined $inputModel->[$i]->{smiles}){
-                print $cpdListOut "$inputModel->[$i]->{id}\t$inputModel->[$i]->{smiles}\n";
+                print $cpdListOut "$cpdId[0]\t$inputModel->[$i]->{smiles}\n";
                 $count++;
             }
             elsif (defined $cpdStHash->{$cpdId[0]}){
