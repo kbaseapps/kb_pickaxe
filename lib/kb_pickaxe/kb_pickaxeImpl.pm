@@ -512,7 +512,7 @@ sub find_genes_for_novel_reactions
     }
     close($fh);
     #Call Filipe's python script
-    my $command = "python3 ".$self->{python_script_dir}."/fingerprint_matcher.py ".$self->{python_script_dir}."/.. ".$self->{'scratch'}."/SmartsList.in ".$self->{'scratch'}."/ReactionList.out 0.6 20";
+    my $command = "python3 ".$self->{python_script_dir}."/fingerprint_matcher.py /data/modelseed_reactions.json ".$self->{'scratch'}."/SmartsList.in ".$self->{'scratch'}."/ReactionList.out 0.6 20";
     print $command."\n";
     system($command);
     #Parse script output
