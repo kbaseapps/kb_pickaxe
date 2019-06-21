@@ -36,6 +36,24 @@ module kb_pickaxe {
     typedef structure {
         string model_ref;
     }  PickAxeResults;
-
+	
+	typedef structure {
+        string workspace_name;
+        list<string> reaction_set;
+        float structural_similarity_floor;
+        float difference_similarity_floor;
+        float blast_score_floor;
+        string query_genome_ref;
+        string query_model_ref;
+        string feature_set_prefix;
+        int number_of_hits_to_report;
+    } find_genes_for_novel_reactions_params;
+    
+    typedef structure {
+        string report_name;
+		string report_ref;
+    } find_genes_for_novel_reactions_results;
+    
     funcdef runpickaxe(RunPickAxe params) returns (PickAxeResults) authentication required;
+    funcdef find_genes_for_novel_reactions(find_genes_for_novel_reactions_params params) returns (find_genes_for_novel_reactions_results) authentication required;
 };

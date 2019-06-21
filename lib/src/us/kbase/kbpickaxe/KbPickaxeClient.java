@@ -180,6 +180,23 @@ public class KbPickaxeClient {
         return res.get(0);
     }
 
+    /**
+     * <p>Original spec-file function name: find_genes_for_novel_reactions</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.kbpickaxe.FindGenesForNovelReactionsParams FindGenesForNovelReactionsParams} (original type "find_genes_for_novel_reactions_params")
+     * @return   instance of type {@link us.kbase.kbpickaxe.FindGenesForNovelReactionsResults FindGenesForNovelReactionsResults} (original type "find_genes_for_novel_reactions_results")
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public FindGenesForNovelReactionsResults findGenesForNovelReactions(FindGenesForNovelReactionsParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<FindGenesForNovelReactionsResults>> retType = new TypeReference<List<FindGenesForNovelReactionsResults>>() {};
+        List<FindGenesForNovelReactionsResults> res = caller.jsonrpcCall("kb_pickaxe.find_genes_for_novel_reactions", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
+    }
+
     public Map<String, Object> status(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<Map<String, Object>>> retType = new TypeReference<List<Map<String, Object>>>() {};

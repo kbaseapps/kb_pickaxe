@@ -52,6 +52,25 @@ class kb_pickaxe(object):
             'kb_pickaxe.runpickaxe',
             [params], self._service_ver, context)
 
+    def find_genes_for_novel_reactions(self, params, context=None):
+        """
+        :param params: instance of type
+           "find_genes_for_novel_reactions_params" -> structure: parameter
+           "workspace_name" of String, parameter "reaction_set" of list of
+           String, parameter "structural_similarity_floor" of Double,
+           parameter "difference_similarity_floor" of Double, parameter
+           "blast_score_floor" of Double, parameter "query_genome_ref" of
+           String, parameter "query_model_ref" of String, parameter
+           "feature_set_prefix" of String, parameter
+           "number_of_hits_to_report" of Long
+        :returns: instance of type "find_genes_for_novel_reactions_results"
+           -> structure: parameter "report_name" of String, parameter
+           "report_ref" of String
+        """
+        return self._client.call_method(
+            'kb_pickaxe.find_genes_for_novel_reactions',
+            [params], self._service_ver, context)
+
     def status(self, context=None):
         return self._client.call_method('kb_pickaxe.status',
                                         [], self._service_ver, context)
