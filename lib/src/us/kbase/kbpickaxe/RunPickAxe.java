@@ -25,6 +25,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "model_ref",
     "rule_set",
     "generations",
+    "prune",
+    "add_transport",
     "out_model_id",
     "compounds"
 })
@@ -40,6 +42,10 @@ public class RunPickAxe {
     private String ruleSet;
     @JsonProperty("generations")
     private Long generations;
+    @JsonProperty("prune")
+    private String prune;
+    @JsonProperty("add_transport")
+    private Long addTransport;
     @JsonProperty("out_model_id")
     private String outModelId;
     @JsonProperty("compounds")
@@ -121,6 +127,36 @@ public class RunPickAxe {
         return this;
     }
 
+    @JsonProperty("prune")
+    public String getPrune() {
+        return prune;
+    }
+
+    @JsonProperty("prune")
+    public void setPrune(String prune) {
+        this.prune = prune;
+    }
+
+    public RunPickAxe withPrune(String prune) {
+        this.prune = prune;
+        return this;
+    }
+
+    @JsonProperty("add_transport")
+    public Long getAddTransport() {
+        return addTransport;
+    }
+
+    @JsonProperty("add_transport")
+    public void setAddTransport(Long addTransport) {
+        this.addTransport = addTransport;
+    }
+
+    public RunPickAxe withAddTransport(Long addTransport) {
+        this.addTransport = addTransport;
+        return this;
+    }
+
     @JsonProperty("out_model_id")
     public String getOutModelId() {
         return outModelId;
@@ -163,7 +199,7 @@ public class RunPickAxe {
 
     @Override
     public String toString() {
-        return ((((((((((((((((("RunPickAxe"+" [workspace=")+ workspace)+", modelId=")+ modelId)+", modelRef=")+ modelRef)+", ruleSet=")+ ruleSet)+", generations=")+ generations)+", outModelId=")+ outModelId)+", compounds=")+ compounds)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((((("RunPickAxe"+" [workspace=")+ workspace)+", modelId=")+ modelId)+", modelRef=")+ modelRef)+", ruleSet=")+ ruleSet)+", generations=")+ generations)+", prune=")+ prune)+", addTransport=")+ addTransport)+", outModelId=")+ outModelId)+", compounds=")+ compounds)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
