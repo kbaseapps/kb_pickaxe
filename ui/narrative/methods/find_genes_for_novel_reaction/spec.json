@@ -18,7 +18,7 @@
             "multiselection" : true,
             "subdata_selection" : {
                "selection_id" : "id",
-               "parameter_id" : "fbamodel_id",
+               "parameter_id" : "query_model_ref",
                "path_to_subdata" : [
                   "modelreactions"
                ],
@@ -37,10 +37,10 @@
          "default_values" : [
             ""
          ],
-         "advanced" : true,
+         "advanced" : false,
          "id" : "reaction_set",
          "allow_multiple" : false,
-         "optional" : true,
+         "optional" : false,
          "field_type" : "textsubdata"
         },{
             "id": "query_genome_ref",
@@ -79,7 +79,7 @@
             "optional": false,
             "advanced": true,
             "allow_multiple": false,
-            "default_values": [ "1.0" ],
+            "default_values": [ "0.5" ],
             "field_type": "text",
             "text_options": {
                 "validate_as": "float",
@@ -92,7 +92,7 @@
             "optional": false,
             "advanced": true,
             "allow_multiple": false,
-            "default_values": [ "1.0" ],
+            "default_values": [ "0.5" ],
             "field_type": "text",
             "text_options": {
                 "validate_as": "float",
