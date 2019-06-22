@@ -213,7 +213,7 @@ sub runpickaxe
             $inchikeyHash->{$coInchikey} = $i
         }
     }
-    my $wshandle=Workspace::WorkspaceClient->new($self->{'workspace-url'});
+    my $wshandle=Workspace::WorkspaceClient->new($self->{'workspace-url'},token=>$ctx->token);
 
     print "loading $params->{model_id}\n";
     my $inputModelF = $wshandle->get_objects([{workspace=>$params->{workspace},name=>$params->{model_id}}])->[0];
@@ -442,7 +442,7 @@ sub find_genes_for_novel_reactions
     my($return);
     #BEGIN find_genes_for_novel_reactions
     my $gene_finder = new kb_reaction_gene_finder::kb_reaction_gene_finderClient($self->{'callbackURL'});
-    my $wshandle = Workspace::WorkspaceClient->new($self->{'workspace-url'});
+    my $wshandle = Workspace::WorkspaceClient->new($self->{'workspace-url'},token=>$ctx->token);
     my $modelobj = $wshandle->get_objects([{"ref"=>$params->{query_model_ref}}])->[0]->{data};
     my $mdlrxns = $modelobj->{modelreactions};
     my $rxn_hash = {};
