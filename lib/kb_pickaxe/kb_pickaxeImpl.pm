@@ -194,8 +194,8 @@ sub runpickaxe
         }
 
     }
-    my $fbaO = new fba_tools::fba_toolsClient( $self->{'callbackURL'},
-        ('service_version' => 'beta', 'async_version' => 'beta',)
+    my $fbaO = fba_tools::fba_toolsClient->new($self->{'callbackURL'},
+        ('service_version' => 'beta', 'async_version' => 'beta',token=>$token)
     );
     my $Cjson;
     {
