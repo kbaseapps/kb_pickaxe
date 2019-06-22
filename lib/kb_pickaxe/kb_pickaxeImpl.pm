@@ -195,7 +195,7 @@ sub runpickaxe
 
     }
     my $token=$ctx->token;
-    print "Token:".$ctx->token."\n"
+    print "Token:".$ctx->token."\n";
     my $fbaO = fba_tools::fba_toolsClient->new($self->{'callbackURL'},
         ('service_version' => 'beta', 'async_version' => 'beta',token=>$token)
     );
