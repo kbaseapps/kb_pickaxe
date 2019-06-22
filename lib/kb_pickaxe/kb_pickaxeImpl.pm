@@ -194,6 +194,7 @@ sub runpickaxe
         }
 
     }
+    my $token=$ctx->token;
     my $fbaO = fba_tools::fba_toolsClient->new($self->{'callbackURL'},
         ('service_version' => 'beta', 'async_version' => 'beta',token=>$token)
     );
@@ -215,7 +216,6 @@ sub runpickaxe
             $inchikeyHash->{$coInchikey} = $i
         }
     }
-    my $token=$ctx->token;
     my $wshandle=Workspace::WorkspaceClient->new($self->{'workspace-url'},token=>$token);
 
     print "loading $params->{model_id}\n";
