@@ -454,24 +454,24 @@ sub find_genes_for_novel_reactions
     for (my $j=0; $j < @{$mdlcpds}; $j++) {
     	$cpd_hash->{$mdlcpds->[$j]->{id}} = $mdlcpds->[$j];
     }
-    my $reactionset = $params->{reaction_set};
+    my $reactionset = [split(/,/,$params->{reaction_set})];
     my $smartslist = {};
     my $sim_rxn_translation = {};
     my $simrxnhash = {};
-    for (my $i=0; $i < @{$params->{reaction_set}}; $i++) {
-    	if ($params->{reaction_set}->[$i] =~ m/(rxn\d+)/) {
+    for (my $i=0; $i < @{$reactionset}; $i++) {
+    	if ($reactionset->[$i] =~ m/(rxn\d+)/) {
     		$sim_rxn_translation->{$1}->{$1} = 1;
     		$simrxnhash->{$1} = 1;
-    	} elsif (defined($rxn_hash->{$params->{reaction_set}->[$i]})) {
+    	} elsif (defined($rxn_hash->{$reactionset->[$i]})) {
     		my $react_smarts = "";
     		my $prod_smarts = "";
-    		my $rgts = $rxn_hash->{$params->{reaction_set}->[$i]}->{modelReactionReagents};
+    		my $rgts = $rxn_hash->{$reactionset->[$i]}->{modelReactionReagents};
     		my $error = "";
     		for (my $j=0; $j < @{$rgts}; $j++) {
     			if ($rgts->[$j]->{modelcompound_ref} =~ m/\/([^\/]+)$/) {
     				my $cpdobj = $cpd_hash->{$1};
     				if (!defined($cpdobj->{smiles})) {
-    					$error = "Reaction ".$params->{reaction_set}->[$i]." involves a compound with no structure available (".$cpdobj->{id}.")! Ignoring this reaction.";
+    					$error = "Reaction ".$reactionset->[$i]." involves a compound with no structure available (".$cpdobj->{id}.")! Ignoring this reaction.";
     					last;		
     				}
     				if ($rgts->[$j]->{coefficient} < 0) {
@@ -488,7 +488,7 @@ sub find_genes_for_novel_reactions
     			}
     		}
     		if (length($error) == 0) {
-    			$smartslist->{$params->{reaction_set}->[$i]} = $react_smarts.">>".$prod_smarts;
+    			$smartslist->{$reactionset->[$i]} = $react_smarts.">>".$prod_smarts;
     		} else {
     			print $error."\n";
     		}
