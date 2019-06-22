@@ -194,11 +194,7 @@ sub runpickaxe
         }
 
     }
-    my $token=$ctx->token;
-    print "Token:".$ctx->token."\n";
-    my $fbaO = fba_tools::fba_toolsClient->new($self->{'callbackURL'},
-        ('service_version' => 'beta', 'async_version' => 'beta',token=>$token)
-    );
+    my $fbaO = fba_tools::fba_toolsClient->new($self->{'callbackURL'});
     my $Cjson;
     {
         local $/; #Enable 'slurp' mode
@@ -217,7 +213,7 @@ sub runpickaxe
             $inchikeyHash->{$coInchikey} = $i
         }
     }
-    my $wshandle=Workspace::WorkspaceClient->new($self->{'workspace-url'},token=>$token);
+    my $wshandle=Workspace::WorkspaceClient->new($self->{'workspace-url'});
 
     print "loading $params->{model_id}\n";
     my $inputModelF = $wshandle->get_objects([{workspace=>$params->{workspace},name=>$params->{model_id}}])->[0];
@@ -445,11 +441,8 @@ sub find_genes_for_novel_reactions
     my $ctx = $kb_pickaxe::kb_pickaxeServer::CallContext;
     my($return);
     #BEGIN find_genes_for_novel_reactions
-    my $token = $ctx->token;
-    my $gene_finder = new kb_reaction_gene_finder::kb_reaction_gene_finderClient( $self->{'callbackURL'},
-        ('service_version' => 'beta', 'async_version' => 'beta',token=>$token)
-    );
-    my $wshandle = Workspace::WorkspaceClient->new($self->{'workspace-url'},token=>$token);
+    my $gene_finder = new kb_reaction_gene_finder::kb_reaction_gene_finderClient($self->{'callbackURL'});
+    my $wshandle = Workspace::WorkspaceClient->new($self->{'workspace-url'});
     my $modelobj = $wshandle->get_objects([{"ref"=>$params->{query_model_ref}}])->[0]->{data};
     my $mdlrxns = $modelobj->{modelreactions};
     my $rxn_hash = {};
