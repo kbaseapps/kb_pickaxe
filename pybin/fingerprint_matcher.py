@@ -282,7 +282,7 @@ def fp_hex_to_dict(fp_hex_dict):
     return fp_dict
 
 fp_dict = None
-filename = sys.argv[1]+'/data/fingerprints/modelseed_reactions.json';
+filename = sys.argv[1]
 with open(filename, 'r') as f:
     fp_dict = fp_hex_to_dict(json.loads(f.read()))
 
