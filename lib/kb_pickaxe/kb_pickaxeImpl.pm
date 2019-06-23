@@ -526,9 +526,9 @@ sub find_genes_for_novel_reactions
     print $json."\n";
     my $data = decode_json($json);    
     foreach my $inrxn (keys(%{$data})) {
-    	foreach my $dbrxn (keys(%{$data->{$inrxn}})) {
-    		$sim_rxn_translation->{$inrxn}->{$dbrxn} = $data->{$inrxn}->{$dbrxn};
-        	$simrxnhash->{$dbrxn} = $inrxn;
+    	for (my $i=0; $i < @{$data->{$inrxn}}; $i++) {
+    		$sim_rxn_translation->{$inrxn}->{$data->{$inrxn}->[$i]->[1]} = $data->{$inrxn}->[$i]->[0];
+        	$simrxnhash->{$data->{$inrxn}->[$i]->[1]} = $inrxn;
     	}
     }
     #Calling gene finder
