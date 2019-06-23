@@ -18,7 +18,7 @@ elif [ "${1}" = "async" ] ; then
 elif [ "${1}" = "init" ] ; then
   echo "Initialize module"
   cd /data
-  curl -s http://bioseed.mcs.anl.gov/~chenry/modelseed_reactions.json
+  curl -s http://bioseed.mcs.anl.gov/~chenry/modelseed_reactions.json > /data/modelseed_reactions.json
 elif [ "${1}" = "bash" ] ; then
   bash
 elif [ "${1}" = "report" ] ; then
