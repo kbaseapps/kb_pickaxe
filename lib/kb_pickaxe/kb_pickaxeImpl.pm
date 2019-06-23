@@ -517,18 +517,29 @@ sub find_genes_for_novel_reactions
     if (!-e $self->{'scratch'}."/ReactionList.out") {
     	die "Reaction list from similarity search not found!";
     }
+    #reading template for rxn filter list
+    open (my $fhhh, "<", $self->{python_script_dir}."/../data/Reactions.tsv");
+    my $rxnhash = {};
+    while (my $Line = <$fhhh>) {
+        if ($Line =~ m/(rxn\d+)/) {
+        	$rxnhash->{$1} = 1;
+        }
+    }
+    close($fhhh);
     open (my $fhh, "<", $self->{'scratch'}."/ReactionList.out");
     my $json = "";
     while (my $Line = <$fhh>) {
         $json .= $Line;
     }
-    close($fh);
+    close($fhh);
     print $json."\n";
     my $data = decode_json($json);    
     foreach my $inrxn (keys(%{$data})) {
     	for (my $i=0; $i < @{$data->{$inrxn}}; $i++) {
-    		$sim_rxn_translation->{$inrxn}->{$data->{$inrxn}->[$i]->[1]} = $data->{$inrxn}->[$i]->[0];
-        	$simrxnhash->{$data->{$inrxn}->[$i]->[1]} = $inrxn;
+    		if (defined($rxnhash->{$data->{$inrxn}->[$i]->[1]})) {
+    			$sim_rxn_translation->{$inrxn}->{$data->{$inrxn}->[$i]->[1]} = $data->{$inrxn}->[$i]->[0];
+        		$simrxnhash->{$data->{$inrxn}->[$i]->[1]} = $inrxn;
+    		}
     	}
     }
     #Calling gene finder
