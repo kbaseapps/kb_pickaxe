@@ -1,6 +1,7 @@
 import binascii
 import logging
 import sys
+import json
 from rdkit.Chem import AllChem
 from rdkit.DataStructs import UIntSparseIntVect # diff
 from rdkit.DataStructs import ExplicitBitVect   # stru
