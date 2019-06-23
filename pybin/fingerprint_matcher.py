@@ -294,7 +294,7 @@ file = open(sys.argv[2], 'r')
 lines = file.readlines()
 results = {}
 for line in lines:
-	items = string.split()
+	items = line.split()
 	results[items[0]] = matcher.match(items[1],  sys.argv[4],  sys.argv[5])
 
 outfile = open(sys.argv[3],'w')
