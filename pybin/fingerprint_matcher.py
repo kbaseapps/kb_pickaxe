@@ -298,7 +298,5 @@ for line in lines:
 	results[items[0]] = matcher.match(items[1],  float(sys.argv[4]),  int(sys.argv[5],10))
 
 outfile = open(sys.argv[3],'w')
-for id in results:
-	for oid in results[id]:
-		print(id+"\t"+oid+"\t"+results[id][oid])
+outfile.write(json.dumps(results))
 outfile.close() 

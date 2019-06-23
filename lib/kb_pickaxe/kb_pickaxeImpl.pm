@@ -518,15 +518,19 @@ sub find_genes_for_novel_reactions
     	die "Reaction list from similarity search not found!";
     }
     open (my $fhh, "<", $self->{'scratch'}."/ReactionList.out");
+    my $json = "";
     while (my $Line = <$fhh>) {
-        $Line =~ s/\r//;
-        chomp($Line);
-        print $Line."\n";
-        my $array = [split(/\t/,$Line)];
-        $sim_rxn_translation->{$array->[0]}->{$array->[1]} = $array->[2];
-        $simrxnhash->{$array->[1]} = $array->[0];
+        $json .= $Line;
     }
     close($fh);
+    print $json."\n";
+    my $data = decode_json($json);    
+    foreach my $inrxn (keys(%{$data})) {
+    	foreach my $dbrxn (keys(%{$data->{$inrxn}})) {
+    		$sim_rxn_translation->{$inrxn}->{$dbrxn} = $data->{$inrxn}->{$dbrxn};
+        	$simrxnhash->{$dbrxn} = $inrxn;
+    	}
+    }
     #Calling gene finder
     $return = $gene_finder->find_genes_from_similar_reactions({
     	workspace_name => $params->{workspace_name},
