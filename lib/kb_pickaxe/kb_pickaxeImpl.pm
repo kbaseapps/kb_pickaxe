@@ -441,7 +441,7 @@ sub find_genes_for_novel_reactions
     my $ctx = $kb_pickaxe::kb_pickaxeServer::CallContext;
     my($return);
     #BEGIN find_genes_for_novel_reactions
-    my $gene_finder = new kb_reaction_gene_finder::kb_reaction_gene_finderClient($self->{'callbackURL'});
+    my $gene_finder = new kb_reaction_gene_finder::kb_reaction_gene_finderClient($self->{'callbackURL'},('service_version' => 'beta', 'async_version' => 'beta'));
     my $wshandle = Workspace::WorkspaceClient->new($self->{'workspace-url'},token=>$ctx->token);
     my $modelobj = $wshandle->get_objects([{"ref"=>$params->{query_model_ref}}])->[0]->{data};
     my $mdlrxns = $modelobj->{modelreactions};
@@ -521,6 +521,7 @@ sub find_genes_for_novel_reactions
     while (my $Line = <$fhh>) {
         $Line =~ s/\r//;
         chomp($Line);
+        print $Line."\n";
         my $array = [split(/\t/,$Line)];
         $sim_rxn_translation->{$array->[0]}->{$array->[1]} = $array->[2];
         $simrxnhash->{$array->[1]} = $array->[0];
