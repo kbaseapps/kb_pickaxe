@@ -504,8 +504,17 @@ sub find_genes_for_novel_reactions
     	print $fh $Item."\t".$smartslist->{$Item}."\n";
     }
     close($fh);
+    #Prepping database file
+    if (!-e $self->{'scratch'}."/modelseed_reactions.json") {
+    	print "Extracting database!";
+    	chdir $self->{'scratch'};
+    	system("tar -xzf ".$self->{python_script_dir}."/../data/modelseed_reactions.tgz");
+    	if (!-e $self->{'scratch'}."/modelseed_reactions.json") {
+    		print "Data not found!";
+    	}
+    }   
     #Call Filipe's python script
-    my $command = "python3 ".$self->{python_script_dir}."/fingerprint_matcher.py /data/modelseed_reactions.json ".$self->{'scratch'}."/SmartsList.in ".$self->{'scratch'}."/ReactionList.out 0.6 20";
+    my $command = "python3 ".$self->{python_script_dir}."/fingerprint_matcher.py ".$self->{'scratch'}."/modelseed_reactions.json ".$self->{'scratch'}."/SmartsList.in ".$self->{'scratch'}."/ReactionList.out 0.6 20";
     print $command."\n";
     system($command);
     #Parse script output
