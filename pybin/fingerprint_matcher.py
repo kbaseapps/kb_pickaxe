@@ -295,7 +295,7 @@ lines = file.readlines()
 results = {}
 for line in lines:
 	items = line.split()
-	results[items[0]] = matcher.match(items[1],  sys.argv[4],  sys.argv[5])
+	results[items[0]] = matcher.match(items[1],  float(sys.argv[4]),  int(sys.argv[5],10))
 
 outfile = open(sys.argv[3],'w')
 for id in results:
