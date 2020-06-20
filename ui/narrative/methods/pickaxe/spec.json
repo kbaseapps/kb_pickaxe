@@ -24,7 +24,7 @@
         },
         {
             "id": "target_id",
-            "optional": false,
+            "optional": true,
             "advanced": false,
             "allow_multiple": false,
             "default_values": [ "" ],
@@ -35,7 +35,7 @@
         },
         {
             "id": "metabolomics_data",
-            "optional": false,
+            "optional": true,
             "advanced": false,
             "allow_multiple": false,
             "default_values": [ "" ],
