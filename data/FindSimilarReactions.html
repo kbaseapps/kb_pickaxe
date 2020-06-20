@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Similar ModelSEED Reactions</title>
+<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="http://www.datatables.net/rss.xml">
+<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.19/css/dataTables.bootstrap.min.css">
+
+<style type="text/css" class="init">
+body {font-family: "Lato", sans-serif;}
+
+table {
+	font-family: arial, sans-serif;
+	border-collapse: collapse;
+	width: 100%;
+}
+
+td, th {
+	border: 1px solid #dddddd;
+	text-align: left;
+	padding: 8px;
+}
+</style>
+
+<script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.3.1.js"></script>
+<script type="text/javascript" language="javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.19/js/dataTables.bootstrap.min.js"></script>
+<script type="text/javascript" class="init">
+
+var similar_rxn_data = |similar_rxn_data|;
+
+$(document).ready(function() {
+	$('a[data-toggle="tab"]').on( 'shown.bs.tab', function (e) {
+		$.fn.dataTable.tables( {visible: true, api: true} ).columns.adjust();
+	} );
+	
+	$('#SimilarReactionsTable').DataTable( {
+        data: similar_rxn_data,
+        scrollY:        200,
+		scrollCollapse: true,
+		paging:         false,
+        columns: [
+            { title: "Query ID" },
+            { title: "Query equation" },
+            { title: "ModelSEED ID" },
+            { title: "ModelSEED equation" },
+            { title: "Structure similarity" },
+            { title: "Reactive similarity" },
+            { title: "Core" }
+        ]
+    } );
+} );
+
+</script>
+</head>
+<body class="wide comments example dt-example-bootstrap">
+<div class="tab-pane active" id="tab-table1"><table id="SimilarReactionsTable" class="display" width="100%"></table></div>
+</body>
+</html>

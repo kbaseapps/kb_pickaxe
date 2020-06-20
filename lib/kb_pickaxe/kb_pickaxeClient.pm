@@ -139,6 +139,8 @@ EachCompound is a reference to a hash where the following keys are defined:
 	compound_name has a value which is a string
 PickAxeResults is a reference to a hash where the following keys are defined:
 	model_ref has a value which is a string
+	report_name has a value which is a string
+	report_ref has a value which is a string
 
 </pre>
 
@@ -165,6 +167,8 @@ EachCompound is a reference to a hash where the following keys are defined:
 	compound_name has a value which is a string
 PickAxeResults is a reference to a hash where the following keys are defined:
 	model_ref has a value which is a string
+	report_name has a value which is a string
+	report_ref has a value which is a string
 
 
 =end text
@@ -225,9 +229,9 @@ PickAxeResults is a reference to a hash where the following keys are defined:
  
 
 
-=head2 find_genes_for_novel_reactions
+=head2 find_similar_modelseed_reactions
 
-  $return = $obj->find_genes_for_novel_reactions($params)
+  $return = $obj->find_similar_modelseed_reactions($params)
 
 =over 4
 
@@ -236,19 +240,21 @@ PickAxeResults is a reference to a hash where the following keys are defined:
 =begin html
 
 <pre>
-$params is a kb_pickaxe.find_genes_for_novel_reactions_params
-$return is a kb_pickaxe.find_genes_for_novel_reactions_results
-find_genes_for_novel_reactions_params is a reference to a hash where the following keys are defined:
+$params is a kb_pickaxe.find_similar_modelseed_reactions_params
+$return is a kb_pickaxe.find_similar_modelseed_reactions_results
+find_similar_modelseed_reactions_params is a reference to a hash where the following keys are defined:
 	workspace_name has a value which is a string
 	reaction_set has a value which is a reference to a list where each element is a string
 	structural_similarity_floor has a value which is a float
 	difference_similarity_floor has a value which is a float
-	blast_score_floor has a value which is a float
-	query_genome_ref has a value which is a string
 	query_model_ref has a value which is a string
-	feature_set_prefix has a value which is a string
-	number_of_hits_to_report has a value which is an int
-find_genes_for_novel_reactions_results is a reference to a hash where the following keys are defined:
+find_similar_modelseed_reactions_results is a reference to a hash where the following keys are defined:
+	similar_reactions has a value which is a reference to a list where each element is a reference to a list containing 4 items:
+		0: (similar_id) a string
+		1: (query_id) a string
+		2: (structural_similarity) a float
+		3: (reactive_similarity) a float
+
 	report_name has a value which is a string
 	report_ref has a value which is a string
 
@@ -258,19 +264,21 @@ find_genes_for_novel_reactions_results is a reference to a hash where the follow
 
 =begin text
 
-$params is a kb_pickaxe.find_genes_for_novel_reactions_params
-$return is a kb_pickaxe.find_genes_for_novel_reactions_results
-find_genes_for_novel_reactions_params is a reference to a hash where the following keys are defined:
+$params is a kb_pickaxe.find_similar_modelseed_reactions_params
+$return is a kb_pickaxe.find_similar_modelseed_reactions_results
+find_similar_modelseed_reactions_params is a reference to a hash where the following keys are defined:
 	workspace_name has a value which is a string
 	reaction_set has a value which is a reference to a list where each element is a string
 	structural_similarity_floor has a value which is a float
 	difference_similarity_floor has a value which is a float
-	blast_score_floor has a value which is a float
-	query_genome_ref has a value which is a string
 	query_model_ref has a value which is a string
-	feature_set_prefix has a value which is a string
-	number_of_hits_to_report has a value which is an int
-find_genes_for_novel_reactions_results is a reference to a hash where the following keys are defined:
+find_similar_modelseed_reactions_results is a reference to a hash where the following keys are defined:
+	similar_reactions has a value which is a reference to a list where each element is a reference to a list containing 4 items:
+		0: (similar_id) a string
+		1: (query_id) a string
+		2: (structural_similarity) a float
+		3: (reactive_similarity) a float
+
 	report_name has a value which is a string
 	report_ref has a value which is a string
 
@@ -285,7 +293,7 @@ find_genes_for_novel_reactions_results is a reference to a hash where the follow
 
 =cut
 
- sub find_genes_for_novel_reactions
+ sub find_similar_modelseed_reactions
 {
     my($self, @args) = @_;
 
@@ -294,7 +302,7 @@ find_genes_for_novel_reactions_results is a reference to a hash where the follow
     if ((my $n = @args) != 1)
     {
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-							       "Invalid argument count for function find_genes_for_novel_reactions (received $n, expecting 1)");
+							       "Invalid argument count for function find_similar_modelseed_reactions (received $n, expecting 1)");
     }
     {
 	my($params) = @args;
@@ -302,31 +310,31 @@ find_genes_for_novel_reactions_results is a reference to a hash where the follow
 	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-	    my $msg = "Invalid arguments passed to find_genes_for_novel_reactions:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    my $msg = "Invalid arguments passed to find_similar_modelseed_reactions:\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-								   method_name => 'find_genes_for_novel_reactions');
+								   method_name => 'find_similar_modelseed_reactions');
 	}
     }
 
     my $url = $self->{url};
     my $result = $self->{client}->call($url, $self->{headers}, {
-	    method => "kb_pickaxe.find_genes_for_novel_reactions",
+	    method => "kb_pickaxe.find_similar_modelseed_reactions",
 	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
 	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
 					       code => $result->content->{error}->{code},
-					       method_name => 'find_genes_for_novel_reactions',
+					       method_name => 'find_similar_modelseed_reactions',
 					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
 					      );
 	} else {
 	    return wantarray ? @{$result->result} : $result->result->[0];
 	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method find_genes_for_novel_reactions",
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method find_similar_modelseed_reactions",
 					    status_line => $self->{client}->status_line,
-					    method_name => 'find_genes_for_novel_reactions',
+					    method_name => 'find_similar_modelseed_reactions',
 				       );
     }
 }
@@ -374,16 +382,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'find_genes_for_novel_reactions',
+                method_name => 'find_similar_modelseed_reactions',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method find_genes_for_novel_reactions",
+            error => "Error invoking method find_similar_modelseed_reactions",
             status_line => $self->{client}->status_line,
-            method_name => 'find_genes_for_novel_reactions',
+            method_name => 'find_similar_modelseed_reactions',
         );
     }
 }
@@ -573,81 +581,6 @@ compounds has a value which is a reference to a list where each element is a kb_
 <pre>
 a reference to a hash where the following keys are defined:
 model_ref has a value which is a string
-
-</pre>
-
-=end html
-
-=begin text
-
-a reference to a hash where the following keys are defined:
-model_ref has a value which is a string
-
-
-=end text
-
-=back
-
-
-
-=head2 find_genes_for_novel_reactions_params
-
-=over 4
-
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a reference to a hash where the following keys are defined:
-workspace_name has a value which is a string
-reaction_set has a value which is a reference to a list where each element is a string
-structural_similarity_floor has a value which is a float
-difference_similarity_floor has a value which is a float
-blast_score_floor has a value which is a float
-query_genome_ref has a value which is a string
-query_model_ref has a value which is a string
-feature_set_prefix has a value which is a string
-number_of_hits_to_report has a value which is an int
-
-</pre>
-
-=end html
-
-=begin text
-
-a reference to a hash where the following keys are defined:
-workspace_name has a value which is a string
-reaction_set has a value which is a reference to a list where each element is a string
-structural_similarity_floor has a value which is a float
-difference_similarity_floor has a value which is a float
-blast_score_floor has a value which is a float
-query_genome_ref has a value which is a string
-query_model_ref has a value which is a string
-feature_set_prefix has a value which is a string
-number_of_hits_to_report has a value which is an int
-
-
-=end text
-
-=back
-
-
-
-=head2 find_genes_for_novel_reactions_results
-
-=over 4
-
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a reference to a hash where the following keys are defined:
 report_name has a value which is a string
 report_ref has a value which is a string
 
@@ -658,6 +591,89 @@ report_ref has a value which is a string
 =begin text
 
 a reference to a hash where the following keys are defined:
+model_ref has a value which is a string
+report_name has a value which is a string
+report_ref has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 find_similar_modelseed_reactions_params
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+workspace_name has a value which is a string
+reaction_set has a value which is a reference to a list where each element is a string
+structural_similarity_floor has a value which is a float
+difference_similarity_floor has a value which is a float
+query_model_ref has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+workspace_name has a value which is a string
+reaction_set has a value which is a reference to a list where each element is a string
+structural_similarity_floor has a value which is a float
+difference_similarity_floor has a value which is a float
+query_model_ref has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 find_similar_modelseed_reactions_results
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+similar_reactions has a value which is a reference to a list where each element is a reference to a list containing 4 items:
+	0: (similar_id) a string
+	1: (query_id) a string
+	2: (structural_similarity) a float
+	3: (reactive_similarity) a float
+
+report_name has a value which is a string
+report_ref has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+similar_reactions has a value which is a reference to a list where each element is a reference to a list containing 4 items:
+	0: (similar_id) a string
+	1: (query_id) a string
+	2: (structural_similarity) a float
+	3: (reactive_similarity) a float
+
 report_name has a value which is a string
 report_ref has a value which is a string
 

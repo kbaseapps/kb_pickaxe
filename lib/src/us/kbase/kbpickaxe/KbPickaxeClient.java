@@ -181,19 +181,19 @@ public class KbPickaxeClient {
     }
 
     /**
-     * <p>Original spec-file function name: find_genes_for_novel_reactions</p>
+     * <p>Original spec-file function name: find_similar_modelseed_reactions</p>
      * <pre>
      * </pre>
-     * @param   params   instance of type {@link us.kbase.kbpickaxe.FindGenesForNovelReactionsParams FindGenesForNovelReactionsParams} (original type "find_genes_for_novel_reactions_params")
-     * @return   instance of type {@link us.kbase.kbpickaxe.FindGenesForNovelReactionsResults FindGenesForNovelReactionsResults} (original type "find_genes_for_novel_reactions_results")
+     * @param   params   instance of type {@link us.kbase.kbpickaxe.FindSimilarModelseedReactionsParams FindSimilarModelseedReactionsParams} (original type "find_similar_modelseed_reactions_params")
+     * @return   instance of type {@link us.kbase.kbpickaxe.FindSimilarModelseedReactionsResults FindSimilarModelseedReactionsResults} (original type "find_similar_modelseed_reactions_results")
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public FindGenesForNovelReactionsResults findGenesForNovelReactions(FindGenesForNovelReactionsParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public FindSimilarModelseedReactionsResults findSimilarModelseedReactions(FindSimilarModelseedReactionsParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(params);
-        TypeReference<List<FindGenesForNovelReactionsResults>> retType = new TypeReference<List<FindGenesForNovelReactionsResults>>() {};
-        List<FindGenesForNovelReactionsResults> res = caller.jsonrpcCall("kb_pickaxe.find_genes_for_novel_reactions", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        TypeReference<List<FindSimilarModelseedReactionsResults>> retType = new TypeReference<List<FindSimilarModelseedReactionsResults>>() {};
+        List<FindSimilarModelseedReactionsResults> res = caller.jsonrpcCall("kb_pickaxe.find_similar_modelseed_reactions", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 

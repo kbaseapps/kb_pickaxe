@@ -46,29 +46,30 @@ class kb_pickaxe(object):
            -> structure: parameter "compound_id" of String, parameter
            "compound_name" of String
         :returns: instance of type "PickAxeResults" -> structure: parameter
-           "model_ref" of String
+           "model_ref" of String, parameter "report_name" of String,
+           parameter "report_ref" of String
         """
         return self._client.call_method(
             'kb_pickaxe.runpickaxe',
             [params], self._service_ver, context)
 
-    def find_genes_for_novel_reactions(self, params, context=None):
+    def find_similar_modelseed_reactions(self, params, context=None):
         """
         :param params: instance of type
-           "find_genes_for_novel_reactions_params" -> structure: parameter
+           "find_similar_modelseed_reactions_params" -> structure: parameter
            "workspace_name" of String, parameter "reaction_set" of list of
            String, parameter "structural_similarity_floor" of Double,
            parameter "difference_similarity_floor" of Double, parameter
-           "blast_score_floor" of Double, parameter "query_genome_ref" of
-           String, parameter "query_model_ref" of String, parameter
-           "feature_set_prefix" of String, parameter
-           "number_of_hits_to_report" of Long
-        :returns: instance of type "find_genes_for_novel_reactions_results"
-           -> structure: parameter "report_name" of String, parameter
-           "report_ref" of String
+           "query_model_ref" of String
+        :returns: instance of type "find_similar_modelseed_reactions_results"
+           -> structure: parameter "similar_reactions" of list of tuple of
+           size 4: parameter "similar_id" of String, parameter "query_id" of
+           String, parameter "structural_similarity" of Double, parameter
+           "reactive_similarity" of Double, parameter "report_name" of
+           String, parameter "report_ref" of String
         """
         return self._client.call_method(
-            'kb_pickaxe.find_genes_for_novel_reactions',
+            'kb_pickaxe.find_similar_modelseed_reactions',
             [params], self._service_ver, context)
 
     def status(self, context=None):

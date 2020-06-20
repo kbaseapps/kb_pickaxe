@@ -6,7 +6,6 @@ use strict;
 use Data::Dumper;
 use URI;
 use Bio::KBase::Exceptions;
-use Time::HiRes;
 my $get_time = sub { time, 0 };
 eval {
     require Time::HiRes;
@@ -43,24 +42,6 @@ sub new
 	url => $url,
 	headers => [],
     };
-    my %arg_hash = @args;
-    $self->{async_job_check_time} = 0.1;
-    if (exists $arg_hash{"async_job_check_time_ms"}) {
-        $self->{async_job_check_time} = $arg_hash{"async_job_check_time_ms"} / 1000.0;
-    }
-    $self->{async_job_check_time_scale_percent} = 150;
-    if (exists $arg_hash{"async_job_check_time_scale_percent"}) {
-        $self->{async_job_check_time_scale_percent} = $arg_hash{"async_job_check_time_scale_percent"};
-    }
-    $self->{async_job_check_max_time} = 300;  # 5 minutes
-    if (exists $arg_hash{"async_job_check_max_time_ms"}) {
-        $self->{async_job_check_max_time} = $arg_hash{"async_job_check_max_time_ms"} / 1000.0;
-    }
-    my $service_version = 'release';
-    if (exists $arg_hash{"service_version"}) {
-        $service_version = $arg_hash{"service_version"};
-    }
-    $self->{service_version} = $service_version;
 
     chomp($self->{hostname} = `hostname`);
     $self->{hostname} ||= 'unknown-host';
@@ -123,43 +104,6 @@ sub new
     bless $self, $class;
     #    $self->_validate_version();
     return $self;
-}
-
-sub _check_job {
-    my($self, @args) = @_;
-# Authentication: ${method.authentication}
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _check_job (received $n, expecting 1)");
-    }
-    {
-        my($job_id) = @args;
-        my @_bad_arguments;
-        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 0 \"job_id\" (it should be a string)");
-        if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _check_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_check_job');
-        }
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._check_job",
-        params => \@args});
-    if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_check_job',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-                          );
-        } else {
-            return $result->result->[0];
-        }
-    } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _check_job",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_check_job');
-    }
 }
 
 
@@ -279,68 +223,389 @@ Build a genome-scale metabolic model based on annotations in an input genome typ
 
 =cut
 
-sub build_metabolic_model
+ sub build_metabolic_model
 {
     my($self, @args) = @_;
-    my $job_id = $self->_build_metabolic_model_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _build_metabolic_model_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _build_metabolic_model_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function build_metabolic_model (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _build_metabolic_model_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_build_metabolic_model_submit');
-        }
+	    my $msg = "Invalid arguments passed to build_metabolic_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'build_metabolic_model');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._build_metabolic_model_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.build_metabolic_model",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_build_metabolic_model_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'build_metabolic_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _build_metabolic_model_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_build_metabolic_model_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method build_metabolic_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'build_metabolic_model',
+				       );
     }
 }
+ 
 
+
+=head2 characterize_genome_metabolism_using_model
+
+  $return = $obj->characterize_genome_metabolism_using_model($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.CharacterizeGenomeUsingModelParams
+$return is a fba_tools.CharacterizeGenomeUsingModelResults
+CharacterizeGenomeUsingModelParams is a reference to a hash where the following keys are defined:
+	genome_id has a value which is a fba_tools.genome_id
+	genome_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	template_id has a value which is a fba_tools.template_id
+	template_workspace has a value which is a fba_tools.workspace_name
+	use_annotated_functions has a value which is a fba_tools.bool
+	merge_all_annotations has a value which is a fba_tools.bool
+	source_ontology_list has a value which is a reference to a list where each element is a string
+genome_id is a string
+workspace_name is a string
+fbamodel_id is a string
+template_id is a string
+bool is an int
+CharacterizeGenomeUsingModelResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.CharacterizeGenomeUsingModelParams
+$return is a fba_tools.CharacterizeGenomeUsingModelResults
+CharacterizeGenomeUsingModelParams is a reference to a hash where the following keys are defined:
+	genome_id has a value which is a fba_tools.genome_id
+	genome_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	template_id has a value which is a fba_tools.template_id
+	template_workspace has a value which is a fba_tools.workspace_name
+	use_annotated_functions has a value which is a fba_tools.bool
+	merge_all_annotations has a value which is a fba_tools.bool
+	source_ontology_list has a value which is a reference to a list where each element is a string
+genome_id is a string
+workspace_name is a string
+fbamodel_id is a string
+template_id is a string
+bool is an int
+CharacterizeGenomeUsingModelResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+
+=end text
+
+=item Description
+
+Builds a model and characterizes an input genome using the model
+
+=back
+
+=cut
+
+ sub characterize_genome_metabolism_using_model
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function characterize_genome_metabolism_using_model (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to characterize_genome_metabolism_using_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'characterize_genome_metabolism_using_model');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.characterize_genome_metabolism_using_model",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'characterize_genome_metabolism_using_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method characterize_genome_metabolism_using_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'characterize_genome_metabolism_using_model',
+				       );
+    }
+}
+ 
+
+
+=head2 run_model_characterization
+
+  $return = $obj->run_model_characterization($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.RunModelCharacterizationParams
+$return is a fba_tools.RunModelCharacterizationResults
+RunModelCharacterizationParams is a reference to a hash where the following keys are defined:
+	fbamodel_id has a value which is a fba_tools.fbamodel_id
+	fbamodel_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+fbamodel_id is a string
+workspace_name is a string
+RunModelCharacterizationResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.RunModelCharacterizationParams
+$return is a fba_tools.RunModelCharacterizationResults
+RunModelCharacterizationParams is a reference to a hash where the following keys are defined:
+	fbamodel_id has a value which is a fba_tools.fbamodel_id
+	fbamodel_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+fbamodel_id is a string
+workspace_name is a string
+RunModelCharacterizationResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+
+=end text
+
+=item Description
+
+Builds a model and characterizes an input genome using the model
+
+=back
+
+=cut
+
+ sub run_model_characterization
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function run_model_characterization (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to run_model_characterization:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'run_model_characterization');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.run_model_characterization",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'run_model_characterization',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method run_model_characterization",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'run_model_characterization',
+				       );
+    }
+}
+ 
+
+
+=head2 build_plant_metabolic_model
+
+  $return = $obj->build_plant_metabolic_model($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.BuildPlantMetabolicModelParams
+$return is a fba_tools.BuildPlantMetabolicModelResults
+BuildPlantMetabolicModelParams is a reference to a hash where the following keys are defined:
+	genome_id has a value which is a fba_tools.genome_id
+	genome_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	template_id has a value which is a fba_tools.template_id
+	template_workspace has a value which is a fba_tools.workspace_name
+genome_id is a string
+workspace_name is a string
+fbamodel_id is a string
+template_id is a string
+BuildPlantMetabolicModelResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+ws_fbamodel_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.BuildPlantMetabolicModelParams
+$return is a fba_tools.BuildPlantMetabolicModelResults
+BuildPlantMetabolicModelParams is a reference to a hash where the following keys are defined:
+	genome_id has a value which is a fba_tools.genome_id
+	genome_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	template_id has a value which is a fba_tools.template_id
+	template_workspace has a value which is a fba_tools.workspace_name
+genome_id is a string
+workspace_name is a string
+fbamodel_id is a string
+template_id is a string
+BuildPlantMetabolicModelResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+ws_fbamodel_id is a string
+
+
+=end text
+
+=item Description
+
+Build a genome-scale metabolic model based on annotations in an input genome typed object
+
+=back
+
+=cut
+
+ sub build_plant_metabolic_model
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function build_plant_metabolic_model (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to build_plant_metabolic_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'build_plant_metabolic_model');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.build_plant_metabolic_model",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'build_plant_metabolic_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method build_plant_metabolic_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'build_plant_metabolic_model',
+				       );
+    }
+}
  
 
 
@@ -456,68 +721,51 @@ Build multiple genome-scale metabolic models based on annotations in an input ge
 
 =cut
 
-sub build_multiple_metabolic_models
+ sub build_multiple_metabolic_models
 {
     my($self, @args) = @_;
-    my $job_id = $self->_build_multiple_metabolic_models_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _build_multiple_metabolic_models_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _build_multiple_metabolic_models_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function build_multiple_metabolic_models (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _build_multiple_metabolic_models_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_build_multiple_metabolic_models_submit');
-        }
+	    my $msg = "Invalid arguments passed to build_multiple_metabolic_models:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'build_multiple_metabolic_models');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._build_multiple_metabolic_models_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.build_multiple_metabolic_models",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_build_multiple_metabolic_models_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'build_multiple_metabolic_models',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _build_multiple_metabolic_models_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_build_multiple_metabolic_models_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method build_multiple_metabolic_models",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'build_multiple_metabolic_models',
+				       );
     }
 }
-
  
 
 
@@ -637,68 +885,51 @@ Gapfills a metabolic model to induce flux in a specified reaction
 
 =cut
 
-sub gapfill_metabolic_model
+ sub gapfill_metabolic_model
 {
     my($self, @args) = @_;
-    my $job_id = $self->_gapfill_metabolic_model_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _gapfill_metabolic_model_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _gapfill_metabolic_model_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function gapfill_metabolic_model (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _gapfill_metabolic_model_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_gapfill_metabolic_model_submit');
-        }
+	    my $msg = "Invalid arguments passed to gapfill_metabolic_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'gapfill_metabolic_model');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._gapfill_metabolic_model_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.gapfill_metabolic_model",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_gapfill_metabolic_model_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'gapfill_metabolic_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _gapfill_metabolic_model_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_gapfill_metabolic_model_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method gapfill_metabolic_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'gapfill_metabolic_model',
+				       );
     }
 }
-
  
 
 
@@ -836,68 +1067,51 @@ Run flux balance analysis and return ID of FBA object with results
 
 =cut
 
-sub run_flux_balance_analysis
+ sub run_flux_balance_analysis
 {
     my($self, @args) = @_;
-    my $job_id = $self->_run_flux_balance_analysis_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _run_flux_balance_analysis_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _run_flux_balance_analysis_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function run_flux_balance_analysis (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _run_flux_balance_analysis_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_run_flux_balance_analysis_submit');
-        }
+	    my $msg = "Invalid arguments passed to run_flux_balance_analysis:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'run_flux_balance_analysis');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._run_flux_balance_analysis_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.run_flux_balance_analysis",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_run_flux_balance_analysis_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'run_flux_balance_analysis',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _run_flux_balance_analysis_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_run_flux_balance_analysis_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method run_flux_balance_analysis",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'run_flux_balance_analysis',
+				       );
     }
 }
-
  
 
 
@@ -957,68 +1171,153 @@ Compares multiple FBA solutions and saves comparison as a new object in the work
 
 =cut
 
-sub compare_fba_solutions
+ sub compare_fba_solutions
 {
     my($self, @args) = @_;
-    my $job_id = $self->_compare_fba_solutions_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _compare_fba_solutions_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _compare_fba_solutions_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function compare_fba_solutions (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _compare_fba_solutions_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_compare_fba_solutions_submit');
-        }
+	    my $msg = "Invalid arguments passed to compare_fba_solutions:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'compare_fba_solutions');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._compare_fba_solutions_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.compare_fba_solutions",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_compare_fba_solutions_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'compare_fba_solutions',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _compare_fba_solutions_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_compare_fba_solutions_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method compare_fba_solutions",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'compare_fba_solutions',
+				       );
     }
 }
+ 
 
+
+=head2 lookup_modelseed_ids
+
+  $results = $obj->lookup_modelseed_ids($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.LookupModelSEEDIDsParams
+$results is a fba_tools.LookupModelSEEDIDsResults
+LookupModelSEEDIDsParams is a reference to a hash where the following keys are defined:
+	workspace has a value which is a fba_tools.workspace_name
+	chemical_abundance_matrix_id has a value which is a fba_tools.metabolome_id
+	chemical_abundance_matrix_out_id has a value which is a fba_tools.metabolome_id
+workspace_name is a string
+metabolome_id is a string
+LookupModelSEEDIDsResults is a reference to a hash where the following keys are defined:
+	report_name has a value which is a string
+	report_ref has a value which is a fba_tools.ws_report_id
+ws_report_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.LookupModelSEEDIDsParams
+$results is a fba_tools.LookupModelSEEDIDsResults
+LookupModelSEEDIDsParams is a reference to a hash where the following keys are defined:
+	workspace has a value which is a fba_tools.workspace_name
+	chemical_abundance_matrix_id has a value which is a fba_tools.metabolome_id
+	chemical_abundance_matrix_out_id has a value which is a fba_tools.metabolome_id
+workspace_name is a string
+metabolome_id is a string
+LookupModelSEEDIDsResults is a reference to a hash where the following keys are defined:
+	report_name has a value which is a string
+	report_ref has a value which is a fba_tools.ws_report_id
+ws_report_id is a string
+
+
+=end text
+
+=item Description
+
+Attempts to map peaks in the input metabolomics matrix to compounds in the ModelSEED database
+
+=back
+
+=cut
+
+ sub lookup_modelseed_ids
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function lookup_modelseed_ids (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to lookup_modelseed_ids:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'lookup_modelseed_ids');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.lookup_modelseed_ids",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'lookup_modelseed_ids',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method lookup_modelseed_ids",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'lookup_modelseed_ids',
+				       );
+    }
+}
  
 
 
@@ -1136,68 +1435,51 @@ Translate the metabolic model of one organism to another, using a mapping of sim
 
 =cut
 
-sub propagate_model_to_new_genome
+ sub propagate_model_to_new_genome
 {
     my($self, @args) = @_;
-    my $job_id = $self->_propagate_model_to_new_genome_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _propagate_model_to_new_genome_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _propagate_model_to_new_genome_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function propagate_model_to_new_genome (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _propagate_model_to_new_genome_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_propagate_model_to_new_genome_submit');
-        }
+	    my $msg = "Invalid arguments passed to propagate_model_to_new_genome:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'propagate_model_to_new_genome');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._propagate_model_to_new_genome_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.propagate_model_to_new_genome",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_propagate_model_to_new_genome_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'propagate_model_to_new_genome',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _propagate_model_to_new_genome_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_propagate_model_to_new_genome_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method propagate_model_to_new_genome",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'propagate_model_to_new_genome',
+				       );
     }
 }
-
  
 
 
@@ -1293,68 +1575,51 @@ Use Flux Balance Analysis (FBA) to simulate multiple growth phenotypes.
 
 =cut
 
-sub simulate_growth_on_phenotype_data
+ sub simulate_growth_on_phenotype_data
 {
     my($self, @args) = @_;
-    my $job_id = $self->_simulate_growth_on_phenotype_data_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _simulate_growth_on_phenotype_data_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _simulate_growth_on_phenotype_data_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function simulate_growth_on_phenotype_data (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _simulate_growth_on_phenotype_data_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_simulate_growth_on_phenotype_data_submit');
-        }
+	    my $msg = "Invalid arguments passed to simulate_growth_on_phenotype_data:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'simulate_growth_on_phenotype_data');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._simulate_growth_on_phenotype_data_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.simulate_growth_on_phenotype_data",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_simulate_growth_on_phenotype_data_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'simulate_growth_on_phenotype_data',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _simulate_growth_on_phenotype_data_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_simulate_growth_on_phenotype_data_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method simulate_growth_on_phenotype_data",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'simulate_growth_on_phenotype_data',
+				       );
     }
 }
-
  
 
 
@@ -1416,68 +1681,51 @@ Merge two or more metabolic models into a compartmentalized community model
 
 =cut
 
-sub merge_metabolic_models_into_community_model
+ sub merge_metabolic_models_into_community_model
 {
     my($self, @args) = @_;
-    my $job_id = $self->_merge_metabolic_models_into_community_model_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _merge_metabolic_models_into_community_model_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _merge_metabolic_models_into_community_model_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function merge_metabolic_models_into_community_model (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _merge_metabolic_models_into_community_model_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_merge_metabolic_models_into_community_model_submit');
-        }
+	    my $msg = "Invalid arguments passed to merge_metabolic_models_into_community_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'merge_metabolic_models_into_community_model');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._merge_metabolic_models_into_community_model_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.merge_metabolic_models_into_community_model",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_merge_metabolic_models_into_community_model_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'merge_metabolic_models_into_community_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _merge_metabolic_models_into_community_model_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_merge_metabolic_models_into_community_model_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method merge_metabolic_models_into_community_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'merge_metabolic_models_into_community_model',
+				       );
     }
 }
-
  
 
 
@@ -1533,68 +1781,51 @@ Merge two or more metabolic models into a compartmentalized community model
 
 =cut
 
-sub view_flux_network
+ sub view_flux_network
 {
     my($self, @args) = @_;
-    my $job_id = $self->_view_flux_network_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _view_flux_network_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _view_flux_network_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function view_flux_network (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _view_flux_network_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_view_flux_network_submit');
-        }
+	    my $msg = "Invalid arguments passed to view_flux_network:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'view_flux_network');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._view_flux_network_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.view_flux_network",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_view_flux_network_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'view_flux_network',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _view_flux_network_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_view_flux_network_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method view_flux_network",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'view_flux_network',
+				       );
     }
 }
-
  
 
 
@@ -1670,68 +1901,51 @@ Merge two or more metabolic models into a compartmentalized community model
 
 =cut
 
-sub compare_flux_with_expression
+ sub compare_flux_with_expression
 {
     my($self, @args) = @_;
-    my $job_id = $self->_compare_flux_with_expression_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _compare_flux_with_expression_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _compare_flux_with_expression_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function compare_flux_with_expression (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _compare_flux_with_expression_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_compare_flux_with_expression_submit');
-        }
+	    my $msg = "Invalid arguments passed to compare_flux_with_expression:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'compare_flux_with_expression');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._compare_flux_with_expression_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.compare_flux_with_expression",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_compare_flux_with_expression_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'compare_flux_with_expression',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _compare_flux_with_expression_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_compare_flux_with_expression_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method compare_flux_with_expression",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'compare_flux_with_expression',
+				       );
     }
 }
-
  
 
 
@@ -1787,68 +2001,51 @@ Identifies reactions in the model that are not mass balanced
 
 =cut
 
-sub check_model_mass_balance
+ sub check_model_mass_balance
 {
     my($self, @args) = @_;
-    my $job_id = $self->_check_model_mass_balance_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _check_model_mass_balance_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _check_model_mass_balance_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function check_model_mass_balance (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _check_model_mass_balance_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_check_model_mass_balance_submit');
-        }
+	    my $msg = "Invalid arguments passed to check_model_mass_balance:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'check_model_mass_balance');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._check_model_mass_balance_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.check_model_mass_balance",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_check_model_mass_balance_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'check_model_mass_balance',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _check_model_mass_balance_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_check_model_mass_balance_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method check_model_mass_balance",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'check_model_mass_balance',
+				       );
     }
 }
-
  
 
 
@@ -1904,68 +2101,465 @@ Identifies reactions in the model that are not mass balanced
 
 =cut
 
-sub predict_auxotrophy
+ sub predict_auxotrophy
 {
     my($self, @args) = @_;
-    my $job_id = $self->_predict_auxotrophy_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _predict_auxotrophy_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _predict_auxotrophy_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function predict_auxotrophy (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _predict_auxotrophy_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_predict_auxotrophy_submit');
-        }
+	    my $msg = "Invalid arguments passed to predict_auxotrophy:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'predict_auxotrophy');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._predict_auxotrophy_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.predict_auxotrophy",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_predict_auxotrophy_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'predict_auxotrophy',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _predict_auxotrophy_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_predict_auxotrophy_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method predict_auxotrophy",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'predict_auxotrophy',
+				       );
     }
 }
+ 
 
+
+=head2 predict_metabolite_biosynthesis_pathway
+
+  $results = $obj->predict_metabolite_biosynthesis_pathway($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.PredictMetaboliteBiosynthesisPathwayInput
+$results is a fba_tools.PredictMetaboliteBiosynthesisPathwayResults
+PredictMetaboliteBiosynthesisPathwayInput is a reference to a hash where the following keys are defined:
+	fbamodel_id has a value which is a fba_tools.fbamodel_id
+	fbamodel_workspace has a value which is a fba_tools.workspace_name
+	media_id has a value which is a fba_tools.media_id
+	media_workspace has a value which is a fba_tools.workspace_name
+	target_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+	source_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+	fba_output_id has a value which is a fba_tools.fba_id
+	workspace has a value which is a fba_tools.workspace_name
+	thermodynamic_constraints has a value which is a fba_tools.bool
+	feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+	reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+	expseries_id has a value which is a fba_tools.expseries_id
+	expseries_workspace has a value which is a fba_tools.workspace_name
+	expression_condition has a value which is a string
+	exp_threshold_percentile has a value which is a float
+	exp_threshold_margin has a value which is a float
+	activation_coefficient has a value which is a float
+	omega has a value which is a float
+fbamodel_id is a string
+workspace_name is a string
+media_id is a string
+compound_id is a string
+fba_id is a string
+bool is an int
+feature_id is a string
+reaction_id is a string
+expseries_id is a string
+PredictMetaboliteBiosynthesisPathwayResults is a reference to a hash where the following keys are defined:
+	report_name has a value which is a string
+	report_ref has a value which is a fba_tools.ws_report_id
+ws_report_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.PredictMetaboliteBiosynthesisPathwayInput
+$results is a fba_tools.PredictMetaboliteBiosynthesisPathwayResults
+PredictMetaboliteBiosynthesisPathwayInput is a reference to a hash where the following keys are defined:
+	fbamodel_id has a value which is a fba_tools.fbamodel_id
+	fbamodel_workspace has a value which is a fba_tools.workspace_name
+	media_id has a value which is a fba_tools.media_id
+	media_workspace has a value which is a fba_tools.workspace_name
+	target_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+	source_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+	fba_output_id has a value which is a fba_tools.fba_id
+	workspace has a value which is a fba_tools.workspace_name
+	thermodynamic_constraints has a value which is a fba_tools.bool
+	feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+	reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+	expseries_id has a value which is a fba_tools.expseries_id
+	expseries_workspace has a value which is a fba_tools.workspace_name
+	expression_condition has a value which is a string
+	exp_threshold_percentile has a value which is a float
+	exp_threshold_margin has a value which is a float
+	activation_coefficient has a value which is a float
+	omega has a value which is a float
+fbamodel_id is a string
+workspace_name is a string
+media_id is a string
+compound_id is a string
+fba_id is a string
+bool is an int
+feature_id is a string
+reaction_id is a string
+expseries_id is a string
+PredictMetaboliteBiosynthesisPathwayResults is a reference to a hash where the following keys are defined:
+	report_name has a value which is a string
+	report_ref has a value which is a fba_tools.ws_report_id
+ws_report_id is a string
+
+
+=end text
+
+=item Description
+
+Identifies reactions in the model that are not mass balanced
+
+=back
+
+=cut
+
+ sub predict_metabolite_biosynthesis_pathway
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function predict_metabolite_biosynthesis_pathway (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to predict_metabolite_biosynthesis_pathway:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'predict_metabolite_biosynthesis_pathway');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.predict_metabolite_biosynthesis_pathway",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'predict_metabolite_biosynthesis_pathway',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method predict_metabolite_biosynthesis_pathway",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'predict_metabolite_biosynthesis_pathway',
+				       );
+    }
+}
+ 
+
+
+=head2 build_metagenome_metabolic_model
+
+  $return = $obj->build_metagenome_metabolic_model($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.BuildMetagenomeMetabolicModelParams
+$return is a fba_tools.BuildMetabolicModelResults
+BuildMetagenomeMetabolicModelParams is a reference to a hash where the following keys are defined:
+	input_ref has a value which is a string
+	input_workspace has a value which is a fba_tools.workspace_name
+	media_id has a value which is a fba_tools.media_id
+	media_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	gapfill_model has a value which is a fba_tools.bool
+	gff_file has a value which is a string
+workspace_name is a string
+media_id is a string
+fbamodel_id is a string
+bool is an int
+BuildMetabolicModelResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+	number_gapfilled_reactions has a value which is an int
+	number_removed_biomass_compounds has a value which is an int
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.BuildMetagenomeMetabolicModelParams
+$return is a fba_tools.BuildMetabolicModelResults
+BuildMetagenomeMetabolicModelParams is a reference to a hash where the following keys are defined:
+	input_ref has a value which is a string
+	input_workspace has a value which is a fba_tools.workspace_name
+	media_id has a value which is a fba_tools.media_id
+	media_workspace has a value which is a fba_tools.workspace_name
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	gapfill_model has a value which is a fba_tools.bool
+	gff_file has a value which is a string
+workspace_name is a string
+media_id is a string
+fbamodel_id is a string
+bool is an int
+BuildMetabolicModelResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+	number_gapfilled_reactions has a value which is an int
+	number_removed_biomass_compounds has a value which is an int
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+
+=end text
+
+=item Description
+
+Build a genome-scale metabolic model based on annotations in an input genome typed object
+
+=back
+
+=cut
+
+ sub build_metagenome_metabolic_model
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function build_metagenome_metabolic_model (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to build_metagenome_metabolic_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'build_metagenome_metabolic_model');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.build_metagenome_metabolic_model",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'build_metagenome_metabolic_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method build_metagenome_metabolic_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'build_metagenome_metabolic_model',
+				       );
+    }
+}
+ 
+
+
+=head2 fit_exometabolite_data
+
+  $results = $obj->fit_exometabolite_data($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.FitExometaboliteDataParams
+$results is a fba_tools.FitExometaboliteDataResults
+FitExometaboliteDataParams is a reference to a hash where the following keys are defined:
+	fbamodel_id has a value which is a fba_tools.fbamodel_id
+	fbamodel_workspace has a value which is a fba_tools.workspace_name
+	source_fbamodel_id has a value which is a fba_tools.fbamodel_id
+	source_fbamodel_workspace has a value which is a fba_tools.workspace_name
+	media_id has a value which is a fba_tools.media_id
+	media_workspace has a value which is a fba_tools.workspace_name
+	metabolome_id has a value which is a fba_tools.metabolome_id
+	metabolome_workspace has a value which is a fba_tools.workspace_name
+	metabolome_condition has a value which is a string
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	minimum_target_flux has a value which is a float
+	omnidirectional has a value which is a fba_tools.bool
+	target_reaction has a value which is a fba_tools.reaction_id
+	feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+	reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+	media_supplement_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+fbamodel_id is a string
+workspace_name is a string
+media_id is a string
+metabolome_id is a string
+bool is an int
+reaction_id is a string
+feature_id is a string
+compound_id is a string
+FitExometaboliteDataResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+	number_gapfilled_reactions has a value which is an int
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.FitExometaboliteDataParams
+$results is a fba_tools.FitExometaboliteDataResults
+FitExometaboliteDataParams is a reference to a hash where the following keys are defined:
+	fbamodel_id has a value which is a fba_tools.fbamodel_id
+	fbamodel_workspace has a value which is a fba_tools.workspace_name
+	source_fbamodel_id has a value which is a fba_tools.fbamodel_id
+	source_fbamodel_workspace has a value which is a fba_tools.workspace_name
+	media_id has a value which is a fba_tools.media_id
+	media_workspace has a value which is a fba_tools.workspace_name
+	metabolome_id has a value which is a fba_tools.metabolome_id
+	metabolome_workspace has a value which is a fba_tools.workspace_name
+	metabolome_condition has a value which is a string
+	fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+	workspace has a value which is a fba_tools.workspace_name
+	minimum_target_flux has a value which is a float
+	omnidirectional has a value which is a fba_tools.bool
+	target_reaction has a value which is a fba_tools.reaction_id
+	feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+	reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+	media_supplement_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+fbamodel_id is a string
+workspace_name is a string
+media_id is a string
+metabolome_id is a string
+bool is an int
+reaction_id is a string
+feature_id is a string
+compound_id is a string
+FitExometaboliteDataResults is a reference to a hash where the following keys are defined:
+	new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+	new_fba_ref has a value which is a fba_tools.ws_fba_id
+	number_gapfilled_reactions has a value which is an int
+ws_fbamodel_id is a string
+ws_fba_id is a string
+
+
+=end text
+
+=item Description
+
+Gapfills a metabolic model to fit input exometabolite data
+
+=back
+
+=cut
+
+ sub fit_exometabolite_data
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function fit_exometabolite_data (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to fit_exometabolite_data:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'fit_exometabolite_data');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.fit_exometabolite_data",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'fit_exometabolite_data',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method fit_exometabolite_data",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'fit_exometabolite_data',
+				       );
+    }
+}
  
 
 
@@ -2033,68 +2627,51 @@ Compare models
 
 =cut
 
-sub compare_models
+ sub compare_models
 {
     my($self, @args) = @_;
-    my $job_id = $self->_compare_models_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _compare_models_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _compare_models_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function compare_models (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _compare_models_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_compare_models_submit');
-        }
+	    my $msg = "Invalid arguments passed to compare_models:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'compare_models');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._compare_models_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.compare_models",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_compare_models_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'compare_models',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _compare_models_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_compare_models_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method compare_models",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'compare_models',
+				       );
     }
 }
-
  
 
 
@@ -2172,68 +2749,51 @@ Edit models
 
 =cut
 
-sub edit_metabolic_model
+ sub edit_metabolic_model
 {
     my($self, @args) = @_;
-    my $job_id = $self->_edit_metabolic_model_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _edit_metabolic_model_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _edit_metabolic_model_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function edit_metabolic_model (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _edit_metabolic_model_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_edit_metabolic_model_submit');
-        }
+	    my $msg = "Invalid arguments passed to edit_metabolic_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'edit_metabolic_model');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._edit_metabolic_model_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.edit_metabolic_model",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_edit_metabolic_model_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'edit_metabolic_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _edit_metabolic_model_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_edit_metabolic_model_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method edit_metabolic_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'edit_metabolic_model',
+				       );
     }
 }
-
  
 
 
@@ -2333,68 +2893,51 @@ Edit models
 
 =cut
 
-sub edit_media
+ sub edit_media
 {
     my($self, @args) = @_;
-    my $job_id = $self->_edit_media_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _edit_media_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _edit_media_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function edit_media (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _edit_media_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_edit_media_submit');
-        }
+	    my $msg = "Invalid arguments passed to edit_media:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'edit_media');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._edit_media_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.edit_media",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_edit_media_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'edit_media',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _edit_media_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_edit_media_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method edit_media",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'edit_media',
+				       );
     }
 }
-
  
 
 
@@ -2456,68 +2999,51 @@ WorkspaceRef is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub excel_file_to_model
+ sub excel_file_to_model
 {
     my($self, @args) = @_;
-    my $job_id = $self->_excel_file_to_model_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _excel_file_to_model_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _excel_file_to_model_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function excel_file_to_model (received $n, expecting 1)");
     }
     {
-        my($p) = @args;
-        my @_bad_arguments;
+	my($p) = @args;
+
+	my @_bad_arguments;
         (ref($p) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"p\" (value was \"$p\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _excel_file_to_model_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_excel_file_to_model_submit');
-        }
+	    my $msg = "Invalid arguments passed to excel_file_to_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'excel_file_to_model');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._excel_file_to_model_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.excel_file_to_model",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_excel_file_to_model_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'excel_file_to_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _excel_file_to_model_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_excel_file_to_model_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method excel_file_to_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'excel_file_to_model',
+				       );
     }
 }
-
  
 
 
@@ -2579,68 +3105,51 @@ WorkspaceRef is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub sbml_file_to_model
+ sub sbml_file_to_model
 {
     my($self, @args) = @_;
-    my $job_id = $self->_sbml_file_to_model_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _sbml_file_to_model_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _sbml_file_to_model_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function sbml_file_to_model (received $n, expecting 1)");
     }
     {
-        my($p) = @args;
-        my @_bad_arguments;
+	my($p) = @args;
+
+	my @_bad_arguments;
         (ref($p) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"p\" (value was \"$p\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _sbml_file_to_model_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_sbml_file_to_model_submit');
-        }
+	    my $msg = "Invalid arguments passed to sbml_file_to_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'sbml_file_to_model');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._sbml_file_to_model_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.sbml_file_to_model",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_sbml_file_to_model_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'sbml_file_to_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _sbml_file_to_model_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_sbml_file_to_model_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method sbml_file_to_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'sbml_file_to_model',
+				       );
     }
 }
-
  
 
 
@@ -2702,68 +3211,51 @@ WorkspaceRef is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub tsv_file_to_model
+ sub tsv_file_to_model
 {
     my($self, @args) = @_;
-    my $job_id = $self->_tsv_file_to_model_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _tsv_file_to_model_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _tsv_file_to_model_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function tsv_file_to_model (received $n, expecting 1)");
     }
     {
-        my($p) = @args;
-        my @_bad_arguments;
+	my($p) = @args;
+
+	my @_bad_arguments;
         (ref($p) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"p\" (value was \"$p\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _tsv_file_to_model_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_tsv_file_to_model_submit');
-        }
+	    my $msg = "Invalid arguments passed to tsv_file_to_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'tsv_file_to_model');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._tsv_file_to_model_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.tsv_file_to_model",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_tsv_file_to_model_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'tsv_file_to_model',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _tsv_file_to_model_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_tsv_file_to_model_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method tsv_file_to_model",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'tsv_file_to_model',
+				       );
     }
 }
-
  
 
 
@@ -2821,68 +3313,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub model_to_excel_file
+ sub model_to_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_model_to_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _model_to_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _model_to_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function model_to_excel_file (received $n, expecting 1)");
     }
     {
-        my($model) = @args;
-        my @_bad_arguments;
+	my($model) = @args;
+
+	my @_bad_arguments;
         (ref($model) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"model\" (value was \"$model\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _model_to_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_model_to_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to model_to_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'model_to_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._model_to_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.model_to_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_model_to_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'model_to_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _model_to_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_model_to_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method model_to_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'model_to_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -2940,68 +3415,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub model_to_sbml_file
+ sub model_to_sbml_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_model_to_sbml_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _model_to_sbml_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _model_to_sbml_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function model_to_sbml_file (received $n, expecting 1)");
     }
     {
-        my($model) = @args;
-        my @_bad_arguments;
+	my($model) = @args;
+
+	my @_bad_arguments;
         (ref($model) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"model\" (value was \"$model\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _model_to_sbml_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_model_to_sbml_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to model_to_sbml_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'model_to_sbml_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._model_to_sbml_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.model_to_sbml_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_model_to_sbml_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'model_to_sbml_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _model_to_sbml_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_model_to_sbml_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method model_to_sbml_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'model_to_sbml_file',
+				       );
     }
 }
-
  
 
 
@@ -3065,68 +3523,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub model_to_tsv_file
+ sub model_to_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_model_to_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _model_to_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _model_to_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function model_to_tsv_file (received $n, expecting 1)");
     }
     {
-        my($model) = @args;
-        my @_bad_arguments;
+	my($model) = @args;
+
+	my @_bad_arguments;
         (ref($model) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"model\" (value was \"$model\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _model_to_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_model_to_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to model_to_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'model_to_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._model_to_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.model_to_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_model_to_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'model_to_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _model_to_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_model_to_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method model_to_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'model_to_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -3172,68 +3613,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_model_as_excel_file
+ sub export_model_as_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_model_as_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_model_as_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_model_as_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_model_as_excel_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_model_as_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_model_as_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_model_as_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_model_as_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_model_as_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_model_as_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_model_as_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_model_as_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_model_as_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_model_as_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_model_as_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_model_as_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -3279,68 +3703,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_model_as_tsv_file
+ sub export_model_as_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_model_as_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_model_as_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_model_as_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_model_as_tsv_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_model_as_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_model_as_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_model_as_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_model_as_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_model_as_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_model_as_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_model_as_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_model_as_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_model_as_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_model_as_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_model_as_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_model_as_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -3386,68 +3793,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_model_as_sbml_file
+ sub export_model_as_sbml_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_model_as_sbml_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_model_as_sbml_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_model_as_sbml_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_model_as_sbml_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_model_as_sbml_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_model_as_sbml_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_model_as_sbml_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_model_as_sbml_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_model_as_sbml_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_model_as_sbml_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_model_as_sbml_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_model_as_sbml_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_model_as_sbml_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_model_as_sbml_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_model_as_sbml_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_model_as_sbml_file',
+				       );
     }
 }
-
  
 
 
@@ -3501,68 +3891,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub fba_to_excel_file
+ sub fba_to_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_fba_to_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _fba_to_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _fba_to_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function fba_to_excel_file (received $n, expecting 1)");
     }
     {
-        my($fba) = @args;
-        my @_bad_arguments;
+	my($fba) = @args;
+
+	my @_bad_arguments;
         (ref($fba) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"fba\" (value was \"$fba\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _fba_to_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_fba_to_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to fba_to_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'fba_to_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._fba_to_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.fba_to_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_fba_to_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'fba_to_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _fba_to_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_fba_to_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method fba_to_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'fba_to_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -3622,68 +3995,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub fba_to_tsv_file
+ sub fba_to_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_fba_to_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _fba_to_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _fba_to_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function fba_to_tsv_file (received $n, expecting 1)");
     }
     {
-        my($fba) = @args;
-        my @_bad_arguments;
+	my($fba) = @args;
+
+	my @_bad_arguments;
         (ref($fba) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"fba\" (value was \"$fba\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _fba_to_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_fba_to_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to fba_to_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'fba_to_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._fba_to_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.fba_to_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_fba_to_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'fba_to_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _fba_to_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_fba_to_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method fba_to_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'fba_to_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -3729,68 +4085,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_fba_as_excel_file
+ sub export_fba_as_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_fba_as_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_fba_as_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_fba_as_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_fba_as_excel_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_fba_as_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_fba_as_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_fba_as_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_fba_as_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_fba_as_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_fba_as_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_fba_as_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_fba_as_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_fba_as_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_fba_as_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_fba_as_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_fba_as_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -3836,68 +4175,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_fba_as_tsv_file
+ sub export_fba_as_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_fba_as_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_fba_as_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_fba_as_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_fba_as_tsv_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_fba_as_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_fba_as_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_fba_as_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_fba_as_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_fba_as_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_fba_as_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_fba_as_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_fba_as_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_fba_as_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_fba_as_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_fba_as_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_fba_as_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -3953,68 +4275,51 @@ WorkspaceRef is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub tsv_file_to_media
+ sub tsv_file_to_media
 {
     my($self, @args) = @_;
-    my $job_id = $self->_tsv_file_to_media_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _tsv_file_to_media_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _tsv_file_to_media_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function tsv_file_to_media (received $n, expecting 1)");
     }
     {
-        my($p) = @args;
-        my @_bad_arguments;
+	my($p) = @args;
+
+	my @_bad_arguments;
         (ref($p) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"p\" (value was \"$p\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _tsv_file_to_media_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_tsv_file_to_media_submit');
-        }
+	    my $msg = "Invalid arguments passed to tsv_file_to_media:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'tsv_file_to_media');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._tsv_file_to_media_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.tsv_file_to_media",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_tsv_file_to_media_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'tsv_file_to_media',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _tsv_file_to_media_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_tsv_file_to_media_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method tsv_file_to_media",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'tsv_file_to_media',
+				       );
     }
 }
-
  
 
 
@@ -4070,68 +4375,51 @@ WorkspaceRef is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub excel_file_to_media
+ sub excel_file_to_media
 {
     my($self, @args) = @_;
-    my $job_id = $self->_excel_file_to_media_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _excel_file_to_media_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _excel_file_to_media_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function excel_file_to_media (received $n, expecting 1)");
     }
     {
-        my($p) = @args;
-        my @_bad_arguments;
+	my($p) = @args;
+
+	my @_bad_arguments;
         (ref($p) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"p\" (value was \"$p\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _excel_file_to_media_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_excel_file_to_media_submit');
-        }
+	    my $msg = "Invalid arguments passed to excel_file_to_media:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'excel_file_to_media');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._excel_file_to_media_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.excel_file_to_media",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_excel_file_to_media_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'excel_file_to_media',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _excel_file_to_media_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_excel_file_to_media_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method excel_file_to_media",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'excel_file_to_media',
+				       );
     }
 }
-
  
 
 
@@ -4185,68 +4473,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub media_to_tsv_file
+ sub media_to_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_media_to_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _media_to_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _media_to_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function media_to_tsv_file (received $n, expecting 1)");
     }
     {
-        my($media) = @args;
-        my @_bad_arguments;
+	my($media) = @args;
+
+	my @_bad_arguments;
         (ref($media) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"media\" (value was \"$media\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _media_to_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_media_to_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to media_to_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'media_to_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._media_to_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.media_to_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_media_to_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'media_to_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _media_to_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_media_to_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method media_to_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'media_to_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -4300,68 +4571,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub media_to_excel_file
+ sub media_to_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_media_to_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _media_to_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _media_to_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function media_to_excel_file (received $n, expecting 1)");
     }
     {
-        my($media) = @args;
-        my @_bad_arguments;
+	my($media) = @args;
+
+	my @_bad_arguments;
         (ref($media) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"media\" (value was \"$media\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _media_to_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_media_to_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to media_to_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'media_to_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._media_to_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.media_to_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_media_to_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'media_to_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _media_to_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_media_to_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method media_to_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'media_to_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -4407,68 +4661,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_media_as_excel_file
+ sub export_media_as_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_media_as_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_media_as_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_media_as_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_media_as_excel_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_media_as_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_media_as_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_media_as_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_media_as_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_media_as_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_media_as_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_media_as_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_media_as_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_media_as_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_media_as_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_media_as_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_media_as_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -4514,68 +4751,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_media_as_tsv_file
+ sub export_media_as_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_media_as_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_media_as_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_media_as_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_media_as_tsv_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_media_as_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_media_as_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_media_as_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_media_as_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_media_as_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_media_as_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_media_as_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_media_as_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_media_as_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_media_as_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_media_as_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_media_as_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -4633,68 +4853,51 @@ WorkspaceRef is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub tsv_file_to_phenotype_set
+ sub tsv_file_to_phenotype_set
 {
     my($self, @args) = @_;
-    my $job_id = $self->_tsv_file_to_phenotype_set_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _tsv_file_to_phenotype_set_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _tsv_file_to_phenotype_set_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function tsv_file_to_phenotype_set (received $n, expecting 1)");
     }
     {
-        my($p) = @args;
-        my @_bad_arguments;
+	my($p) = @args;
+
+	my @_bad_arguments;
         (ref($p) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"p\" (value was \"$p\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _tsv_file_to_phenotype_set_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_tsv_file_to_phenotype_set_submit');
-        }
+	    my $msg = "Invalid arguments passed to tsv_file_to_phenotype_set:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'tsv_file_to_phenotype_set');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._tsv_file_to_phenotype_set_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.tsv_file_to_phenotype_set",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_tsv_file_to_phenotype_set_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'tsv_file_to_phenotype_set',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _tsv_file_to_phenotype_set_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_tsv_file_to_phenotype_set_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method tsv_file_to_phenotype_set",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'tsv_file_to_phenotype_set',
+				       );
     }
 }
-
  
 
 
@@ -4748,68 +4951,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub phenotype_set_to_tsv_file
+ sub phenotype_set_to_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_phenotype_set_to_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _phenotype_set_to_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _phenotype_set_to_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function phenotype_set_to_tsv_file (received $n, expecting 1)");
     }
     {
-        my($phenotype_set) = @args;
-        my @_bad_arguments;
+	my($phenotype_set) = @args;
+
+	my @_bad_arguments;
         (ref($phenotype_set) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"phenotype_set\" (value was \"$phenotype_set\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _phenotype_set_to_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_phenotype_set_to_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to phenotype_set_to_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'phenotype_set_to_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._phenotype_set_to_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.phenotype_set_to_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_phenotype_set_to_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'phenotype_set_to_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _phenotype_set_to_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_phenotype_set_to_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method phenotype_set_to_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'phenotype_set_to_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -4855,68 +5041,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_phenotype_set_as_tsv_file
+ sub export_phenotype_set_as_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_phenotype_set_as_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_phenotype_set_as_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_phenotype_set_as_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_phenotype_set_as_tsv_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_phenotype_set_as_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_phenotype_set_as_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_phenotype_set_as_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_phenotype_set_as_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_phenotype_set_as_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_phenotype_set_as_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_phenotype_set_as_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_phenotype_set_as_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_phenotype_set_as_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_phenotype_set_as_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_phenotype_set_as_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_phenotype_set_as_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -4970,68 +5139,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub phenotype_simulation_set_to_excel_file
+ sub phenotype_simulation_set_to_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_phenotype_simulation_set_to_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _phenotype_simulation_set_to_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _phenotype_simulation_set_to_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function phenotype_simulation_set_to_excel_file (received $n, expecting 1)");
     }
     {
-        my($pss) = @args;
-        my @_bad_arguments;
+	my($pss) = @args;
+
+	my @_bad_arguments;
         (ref($pss) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"pss\" (value was \"$pss\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _phenotype_simulation_set_to_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_phenotype_simulation_set_to_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to phenotype_simulation_set_to_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'phenotype_simulation_set_to_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._phenotype_simulation_set_to_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.phenotype_simulation_set_to_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_phenotype_simulation_set_to_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'phenotype_simulation_set_to_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _phenotype_simulation_set_to_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_phenotype_simulation_set_to_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method phenotype_simulation_set_to_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'phenotype_simulation_set_to_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -5085,68 +5237,51 @@ File is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub phenotype_simulation_set_to_tsv_file
+ sub phenotype_simulation_set_to_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_phenotype_simulation_set_to_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _phenotype_simulation_set_to_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _phenotype_simulation_set_to_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function phenotype_simulation_set_to_tsv_file (received $n, expecting 1)");
     }
     {
-        my($pss) = @args;
-        my @_bad_arguments;
+	my($pss) = @args;
+
+	my @_bad_arguments;
         (ref($pss) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"pss\" (value was \"$pss\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _phenotype_simulation_set_to_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_phenotype_simulation_set_to_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to phenotype_simulation_set_to_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'phenotype_simulation_set_to_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._phenotype_simulation_set_to_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.phenotype_simulation_set_to_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_phenotype_simulation_set_to_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'phenotype_simulation_set_to_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _phenotype_simulation_set_to_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_phenotype_simulation_set_to_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method phenotype_simulation_set_to_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'phenotype_simulation_set_to_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -5192,68 +5327,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_phenotype_simulation_set_as_excel_file
+ sub export_phenotype_simulation_set_as_excel_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_phenotype_simulation_set_as_excel_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_phenotype_simulation_set_as_excel_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_phenotype_simulation_set_as_excel_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_phenotype_simulation_set_as_excel_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_phenotype_simulation_set_as_excel_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_phenotype_simulation_set_as_excel_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_phenotype_simulation_set_as_excel_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_phenotype_simulation_set_as_excel_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_phenotype_simulation_set_as_excel_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_phenotype_simulation_set_as_excel_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_phenotype_simulation_set_as_excel_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_phenotype_simulation_set_as_excel_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_phenotype_simulation_set_as_excel_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_phenotype_simulation_set_as_excel_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_phenotype_simulation_set_as_excel_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_phenotype_simulation_set_as_excel_file',
+				       );
     }
 }
-
  
 
 
@@ -5299,68 +5417,51 @@ ExportOutput is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub export_phenotype_simulation_set_as_tsv_file
+ sub export_phenotype_simulation_set_as_tsv_file
 {
     my($self, @args) = @_;
-    my $job_id = $self->_export_phenotype_simulation_set_as_tsv_file_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _export_phenotype_simulation_set_as_tsv_file_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _export_phenotype_simulation_set_as_tsv_file_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function export_phenotype_simulation_set_as_tsv_file (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _export_phenotype_simulation_set_as_tsv_file_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_export_phenotype_simulation_set_as_tsv_file_submit');
-        }
+	    my $msg = "Invalid arguments passed to export_phenotype_simulation_set_as_tsv_file:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'export_phenotype_simulation_set_as_tsv_file');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._export_phenotype_simulation_set_as_tsv_file_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.export_phenotype_simulation_set_as_tsv_file",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_export_phenotype_simulation_set_as_tsv_file_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'export_phenotype_simulation_set_as_tsv_file',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _export_phenotype_simulation_set_as_tsv_file_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_export_phenotype_simulation_set_as_tsv_file_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method export_phenotype_simulation_set_as_tsv_file",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'export_phenotype_simulation_set_as_tsv_file',
+				       );
     }
 }
-
  
 
 
@@ -5390,6 +5491,7 @@ BulkExportObjectsParams is a reference to a hash where the following keys are de
 	phenotype_format has a value which is a string
 	phenosim_format has a value which is a string
 	workspace has a value which is a string
+	report_workspace has a value which is a string
 bool is an int
 BulkExportObjectsResult is a reference to a hash where the following keys are defined:
 	report_name has a value which is a string
@@ -5418,6 +5520,7 @@ BulkExportObjectsParams is a reference to a hash where the following keys are de
 	phenotype_format has a value which is a string
 	phenosim_format has a value which is a string
 	workspace has a value which is a string
+	report_workspace has a value which is a string
 bool is an int
 BulkExportObjectsResult is a reference to a hash where the following keys are defined:
 	report_name has a value which is a string
@@ -5436,114 +5539,180 @@ ws_report_id is a string
 
 =cut
 
-sub bulk_export_objects
+ sub bulk_export_objects
 {
     my($self, @args) = @_;
-    my $job_id = $self->_bulk_export_objects_submit(@args);
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
-    }
-}
 
-sub _bulk_export_objects_submit {
-    my($self, @args) = @_;
 # Authentication: required
-    if ((my $n = @args) != 1) {
-        Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-                                   "Invalid argument count for function _bulk_export_objects_submit (received $n, expecting 1)");
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function bulk_export_objects (received $n, expecting 1)");
     }
     {
-        my($params) = @args;
-        my @_bad_arguments;
+	my($params) = @args;
+
+	my @_bad_arguments;
         (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
         if (@_bad_arguments) {
-            my $msg = "Invalid arguments passed to _bulk_export_objects_submit:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-            Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-                                   method_name => '_bulk_export_objects_submit');
-        }
+	    my $msg = "Invalid arguments passed to bulk_export_objects:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'bulk_export_objects');
+	}
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._bulk_export_objects_submit",
-        params => \@args, context => $context});
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.bulk_export_objects",
+	    params => \@args,
+    });
     if ($result) {
-        if ($result->is_error) {
-            Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-                           code => $result->content->{error}->{code},
-                           method_name => '_bulk_export_objects_submit',
-                           data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
-        } else {
-            return $result->result->[0];  # job_id
-        }
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'bulk_export_objects',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _bulk_export_objects_submit",
-                        status_line => $self->{client}->status_line,
-                        method_name => '_bulk_export_objects_submit');
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method bulk_export_objects",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'bulk_export_objects',
+				       );
     }
 }
+ 
 
+
+=head2 run_fba_tools_tests
+
+  $output = $obj->run_fba_tools_tests($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a fba_tools.RunFbaToolsTestsParams
+$output is a fba_tools.RunFbaToolsTestsResult
+RunFbaToolsTestsParams is a reference to a hash where the following keys are defined:
+	test_metagenomes has a value which is a fba_tools.bool
+	workspace has a value which is a string
+bool is an int
+RunFbaToolsTestsResult is a reference to a hash where the following keys are defined:
+	report_name has a value which is a string
+	report_ref has a value which is a fba_tools.ws_report_id
+	ref has a value which is a string
+ws_report_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a fba_tools.RunFbaToolsTestsParams
+$output is a fba_tools.RunFbaToolsTestsResult
+RunFbaToolsTestsParams is a reference to a hash where the following keys are defined:
+	test_metagenomes has a value which is a fba_tools.bool
+	workspace has a value which is a string
+bool is an int
+RunFbaToolsTestsResult is a reference to a hash where the following keys are defined:
+	report_name has a value which is a string
+	report_ref has a value which is a fba_tools.ws_report_id
+	ref has a value which is a string
+ws_report_id is a string
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+ sub run_fba_tools_tests
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function run_fba_tools_tests (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to run_fba_tools_tests:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'run_fba_tools_tests');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "fba_tools.run_fba_tools_tests",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'run_fba_tools_tests',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method run_fba_tools_tests",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'run_fba_tools_tests',
+				       );
+    }
+}
  
- 
+  
 sub status
 {
     my($self, @args) = @_;
-    my $job_id = undef;
     if ((my $n = @args) != 0) {
         Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
                                    "Invalid argument count for function status (received $n, expecting 0)");
     }
-    my $context = undef;
-    if ($self->{service_version}) {
-        $context = {'service_ver' => $self->{service_version}};
-    }
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-        method => "fba_tools._status_submit",
-        params => \@args, context => $context});
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+        method => "fba_tools.status",
+        params => \@args,
+    });
     if ($result) {
         if ($result->is_error) {
             Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
                            code => $result->content->{error}->{code},
-                           method_name => '_status_submit',
+                           method_name => 'status',
                            data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
-            );
+                          );
         } else {
-            $job_id = $result->result->[0];
+            return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
-        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method _status_submit",
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method status",
                         status_line => $self->{client}->status_line,
-                        method_name => '_status_submit');
-    }
-    my $async_job_check_time = $self->{async_job_check_time};
-    while (1) {
-        Time::HiRes::sleep($async_job_check_time);
-        $async_job_check_time *= $self->{async_job_check_time_scale_percent} / 100.0;
-        if ($async_job_check_time > $self->{async_job_check_max_time}) {
-            $async_job_check_time = $self->{async_job_check_max_time};
-        }
-        my $job_state_ref = $self->_check_job($job_id);
-        if ($job_state_ref->{"finished"} != 0) {
-            if (!exists $job_state_ref->{"result"}) {
-                $job_state_ref->{"result"} = [];
-            }
-            return wantarray ? @{$job_state_ref->{"result"}} : $job_state_ref->{"result"}->[0];
-        }
+                        method_name => 'status',
+                       );
     }
 }
    
@@ -5559,16 +5728,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'bulk_export_objects',
+                method_name => 'run_fba_tools_tests',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method bulk_export_objects",
+            error => "Error invoking method run_fba_tools_tests",
             status_line => $self->{client}->status_line,
-            method_name => 'bulk_export_objects',
+            method_name => 'run_fba_tools_tests',
         );
     }
 }
@@ -5955,6 +6124,37 @@ a string
 =item Description
 
 A string representing an expression matrix id.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 metabolome_id
+
+=over 4
+
+
+
+=item Description
+
+A string representing a metabolome matrix id.
 
 
 =item Definition
@@ -6469,6 +6669,222 @@ number_removed_biomass_compounds has a value which is an int
 
 
 
+=head2 CharacterizeGenomeUsingModelParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+genome_id has a value which is a fba_tools.genome_id
+genome_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+template_id has a value which is a fba_tools.template_id
+template_workspace has a value which is a fba_tools.workspace_name
+use_annotated_functions has a value which is a fba_tools.bool
+merge_all_annotations has a value which is a fba_tools.bool
+source_ontology_list has a value which is a reference to a list where each element is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+genome_id has a value which is a fba_tools.genome_id
+genome_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+template_id has a value which is a fba_tools.template_id
+template_workspace has a value which is a fba_tools.workspace_name
+use_annotated_functions has a value which is a fba_tools.bool
+merge_all_annotations has a value which is a fba_tools.bool
+source_ontology_list has a value which is a reference to a list where each element is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 CharacterizeGenomeUsingModelResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+new_fba_ref has a value which is a fba_tools.ws_fba_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+new_fba_ref has a value which is a fba_tools.ws_fba_id
+
+
+=end text
+
+=back
+
+
+
+=head2 RunModelCharacterizationParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+fbamodel_id has a value which is a fba_tools.fbamodel_id
+fbamodel_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+fbamodel_id has a value which is a fba_tools.fbamodel_id
+fbamodel_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+
+
+=end text
+
+=back
+
+
+
+=head2 RunModelCharacterizationResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+new_fba_ref has a value which is a fba_tools.ws_fba_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+new_fba_ref has a value which is a fba_tools.ws_fba_id
+
+
+=end text
+
+=back
+
+
+
+=head2 BuildPlantMetabolicModelParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+genome_id has a value which is a fba_tools.genome_id
+genome_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+template_id has a value which is a fba_tools.template_id
+template_workspace has a value which is a fba_tools.workspace_name
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+genome_id has a value which is a fba_tools.genome_id
+genome_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+template_id has a value which is a fba_tools.template_id
+template_workspace has a value which is a fba_tools.workspace_name
+
+
+=end text
+
+=back
+
+
+
+=head2 BuildPlantMetabolicModelResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+
+
+=end text
+
+=back
+
+
+
 =head2 BuildMultipleMetabolicModelsParams
 
 =over 4
@@ -6881,6 +7297,72 @@ new_fbacomparison_ref has a value which is a fba_tools.ws_fbacomparison_id
 
 a reference to a hash where the following keys are defined:
 new_fbacomparison_ref has a value which is a fba_tools.ws_fbacomparison_id
+
+
+=end text
+
+=back
+
+
+
+=head2 LookupModelSEEDIDsParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+workspace has a value which is a fba_tools.workspace_name
+chemical_abundance_matrix_id has a value which is a fba_tools.metabolome_id
+chemical_abundance_matrix_out_id has a value which is a fba_tools.metabolome_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+workspace has a value which is a fba_tools.workspace_name
+chemical_abundance_matrix_id has a value which is a fba_tools.metabolome_id
+chemical_abundance_matrix_out_id has a value which is a fba_tools.metabolome_id
+
+
+=end text
+
+=back
+
+
+
+=head2 LookupModelSEEDIDsResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+report_name has a value which is a string
+report_ref has a value which is a fba_tools.ws_report_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+report_name has a value which is a string
+report_ref has a value which is a fba_tools.ws_report_id
 
 
 =end text
@@ -7425,6 +7907,242 @@ new_report_ref has a value which is a fba_tools.ws_report_id
 
 a reference to a hash where the following keys are defined:
 new_report_ref has a value which is a fba_tools.ws_report_id
+
+
+=end text
+
+=back
+
+
+
+=head2 PredictMetaboliteBiosynthesisPathwayInput
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+fbamodel_id has a value which is a fba_tools.fbamodel_id
+fbamodel_workspace has a value which is a fba_tools.workspace_name
+media_id has a value which is a fba_tools.media_id
+media_workspace has a value which is a fba_tools.workspace_name
+target_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+source_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+fba_output_id has a value which is a fba_tools.fba_id
+workspace has a value which is a fba_tools.workspace_name
+thermodynamic_constraints has a value which is a fba_tools.bool
+feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+expseries_id has a value which is a fba_tools.expseries_id
+expseries_workspace has a value which is a fba_tools.workspace_name
+expression_condition has a value which is a string
+exp_threshold_percentile has a value which is a float
+exp_threshold_margin has a value which is a float
+activation_coefficient has a value which is a float
+omega has a value which is a float
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+fbamodel_id has a value which is a fba_tools.fbamodel_id
+fbamodel_workspace has a value which is a fba_tools.workspace_name
+media_id has a value which is a fba_tools.media_id
+media_workspace has a value which is a fba_tools.workspace_name
+target_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+source_metabolite_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+fba_output_id has a value which is a fba_tools.fba_id
+workspace has a value which is a fba_tools.workspace_name
+thermodynamic_constraints has a value which is a fba_tools.bool
+feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+expseries_id has a value which is a fba_tools.expseries_id
+expseries_workspace has a value which is a fba_tools.workspace_name
+expression_condition has a value which is a string
+exp_threshold_percentile has a value which is a float
+exp_threshold_margin has a value which is a float
+activation_coefficient has a value which is a float
+omega has a value which is a float
+
+
+=end text
+
+=back
+
+
+
+=head2 PredictMetaboliteBiosynthesisPathwayResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+report_name has a value which is a string
+report_ref has a value which is a fba_tools.ws_report_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+report_name has a value which is a string
+report_ref has a value which is a fba_tools.ws_report_id
+
+
+=end text
+
+=back
+
+
+
+=head2 BuildMetagenomeMetabolicModelParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+input_ref has a value which is a string
+input_workspace has a value which is a fba_tools.workspace_name
+media_id has a value which is a fba_tools.media_id
+media_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+gapfill_model has a value which is a fba_tools.bool
+gff_file has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+input_ref has a value which is a string
+input_workspace has a value which is a fba_tools.workspace_name
+media_id has a value which is a fba_tools.media_id
+media_workspace has a value which is a fba_tools.workspace_name
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+gapfill_model has a value which is a fba_tools.bool
+gff_file has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 FitExometaboliteDataParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+fbamodel_id has a value which is a fba_tools.fbamodel_id
+fbamodel_workspace has a value which is a fba_tools.workspace_name
+source_fbamodel_id has a value which is a fba_tools.fbamodel_id
+source_fbamodel_workspace has a value which is a fba_tools.workspace_name
+media_id has a value which is a fba_tools.media_id
+media_workspace has a value which is a fba_tools.workspace_name
+metabolome_id has a value which is a fba_tools.metabolome_id
+metabolome_workspace has a value which is a fba_tools.workspace_name
+metabolome_condition has a value which is a string
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+minimum_target_flux has a value which is a float
+omnidirectional has a value which is a fba_tools.bool
+target_reaction has a value which is a fba_tools.reaction_id
+feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+media_supplement_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+fbamodel_id has a value which is a fba_tools.fbamodel_id
+fbamodel_workspace has a value which is a fba_tools.workspace_name
+source_fbamodel_id has a value which is a fba_tools.fbamodel_id
+source_fbamodel_workspace has a value which is a fba_tools.workspace_name
+media_id has a value which is a fba_tools.media_id
+media_workspace has a value which is a fba_tools.workspace_name
+metabolome_id has a value which is a fba_tools.metabolome_id
+metabolome_workspace has a value which is a fba_tools.workspace_name
+metabolome_condition has a value which is a string
+fbamodel_output_id has a value which is a fba_tools.fbamodel_id
+workspace has a value which is a fba_tools.workspace_name
+minimum_target_flux has a value which is a float
+omnidirectional has a value which is a fba_tools.bool
+target_reaction has a value which is a fba_tools.reaction_id
+feature_ko_list has a value which is a reference to a list where each element is a fba_tools.feature_id
+reaction_ko_list has a value which is a reference to a list where each element is a fba_tools.reaction_id
+media_supplement_list has a value which is a reference to a list where each element is a fba_tools.compound_id
+
+
+=end text
+
+=back
+
+
+
+=head2 FitExometaboliteDataResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+new_fba_ref has a value which is a fba_tools.ws_fba_id
+number_gapfilled_reactions has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+new_fbamodel_ref has a value which is a fba_tools.ws_fbamodel_id
+new_fba_ref has a value which is a fba_tools.ws_fba_id
+number_gapfilled_reactions has a value which is an int
 
 
 =end text
@@ -8261,6 +8979,7 @@ media_format has a value which is a string
 phenotype_format has a value which is a string
 phenosim_format has a value which is a string
 workspace has a value which is a string
+report_workspace has a value which is a string
 
 </pre>
 
@@ -8281,6 +9000,7 @@ media_format has a value which is a string
 phenotype_format has a value which is a string
 phenosim_format has a value which is a string
 workspace has a value which is a string
+report_workspace has a value which is a string
 
 
 =end text
@@ -8290,6 +9010,72 @@ workspace has a value which is a string
 
 
 =head2 BulkExportObjectsResult
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+report_name has a value which is a string
+report_ref has a value which is a fba_tools.ws_report_id
+ref has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+report_name has a value which is a string
+report_ref has a value which is a fba_tools.ws_report_id
+ref has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 RunFbaToolsTestsParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+test_metagenomes has a value which is a fba_tools.bool
+workspace has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+test_metagenomes has a value which is a fba_tools.bool
+workspace has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 RunFbaToolsTestsResult
 
 =over 4
 

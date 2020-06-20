@@ -1,0 +1,51 @@
+#
+# define display information
+#
+name: Find Similar ModelSEED Reactions
+tooltip: |
+    Finds reactions in the ModelSEED database that are similar to one or more reactions in an input metabolic model
+screenshots: []
+
+icon: null
+
+#
+# define a set of similar methods that might be useful to the user
+#
+suggestions:
+    apps:
+        related:
+            []
+        next:
+            []
+    methods:
+        related:
+            []
+        next:
+            []
+
+#
+# Configure the display and description of parameters
+#
+parameters :
+    reaction_set :
+        ui-name : |
+            Reaction
+        short-hint : |
+            The reactions to search a gene candidate
+    query_model_ref :
+        ui-name : |
+            Source Model
+        short-hint : |
+            The model containing the novel reaction to be analyzed
+    structural_similarity_floor :
+        ui-name : |
+            Structural Similarity Floor
+        short-hint : |
+            The minimum Tannimoto similarity or a realated reaction based on a structural fingerprint
+    difference_similarity_floor :
+        ui-name : |
+            Difference Similarity Floor
+        short-hint : |
+            The minimum Tannimoto similarity or a realated reaction based on a difference fingerprint
+description : |
+    <p>This method identifies ModelSEED reactions that are simlar to each of the reactions input from a metabolic model in KBase. This app is most useful when applied to novel reactions generated in models from the PickAxe app. ModelSEED reactions that are similar to novel reactions from PickAxe can then be applied to identify gene candidates for the novel reaction useing the Find Gene Candidate app.</p>

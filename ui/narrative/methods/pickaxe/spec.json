@@ -23,10 +23,32 @@
             }
         },
         {
-            "id": "rule_set",
+            "id": "target_id",
             "optional": false,
             "advanced": false,
             "allow_multiple": false,
+            "default_values": [ "" ],
+            "field_type": "text",
+            "text_options": {
+                "valid_ws_types": [ "KBaseBiochem.CompoundSet" ]
+            }
+        },
+        {
+            "id": "metabolomics_data",
+            "optional": false,
+            "advanced": false,
+            "allow_multiple": false,
+            "default_values": [ "" ],
+            "field_type": "text",
+            "text_options": {
+                "valid_ws_types": [ "KBaseMatrices.ChemicalAbundanceMatrix" ]
+            }
+        },
+        {
+            "id": "rule_set",
+            "optional": false,
+            "advanced": false,
+            "allow_multiple": true,
             "default_values": [ "enzymatic" ],
             "field_type": "dropdown",
             "dropdown_options": {
@@ -112,44 +134,116 @@
                     {
                         "value": 3,
                         "display": "Three",
-                        "id": "Two",
+                        "id": "Three",
                         "ui_name": "Three"
+                    },
+                    {
+                        "value": 4,
+                        "display": "Four",
+                        "id": "Four",
+                        "ui_name": "Four"
+                    },
+                    {
+                        "value": 5,
+                        "display": "Five",
+                        "id": "Five",
+                        "ui_name": "Five"
+                    }
+                ]
+            }
+		},
+		{
+		    "id" : "max_new_cpds_per_gen_per_ruleset",
+		    "optional" : false,
+		    "advanced" : true,
+		    "allow_multiple" : false,
+		    "default_values" : [ 3000 ],
+			"field_type": "dropdown",
+            "dropdown_options": {
+                "options": [
+                    {
+                        "value": 1000,
+                        "display": "1000",
+                        "id": "1000",
+                        "ui_name": "1000"
+                    },
+                    {
+                        "value": 2000,
+                        "display": "2000",
+                        "id": "2000",
+                        "ui_name": "2000"
+                    },
+                    {
+                        "value": 3000,
+                        "display": "3000",
+                        "id": "3000",
+                        "ui_name": "3000"
+                    },
+                    {
+                        "value": 4000,
+                        "display": "4000",
+                        "id": "4000",
+                        "ui_name": "4000"
+                    },
+                    {
+                        "value": 5000,
+                        "display": "5000",
+                        "id": "5000",
+                        "ui_name": "5000"
                     }
                 ]
             }
 		},
         {
-            "id": "prune",
-            "optional": false,
-            "advanced": true,
-            "allow_multiple": false,
-            "default_values": [ "biochemistry" ],
-            "field_type": "dropdown",
-            "dropdown_options": {
-                "options": [
-                    {
-                        "value": "biochemistry",
-                        "display": "Known Biochemistry",
-                        "id": "biochemistry",
-                        "ui_name": "Known Biochemistry"
-                    },
-                    {
-                        "value": "model",
-                        "display": "Input Model",
-                        "id": "model",
-                        "ui_name": "Input Model"
-                    },
-                    {
-                        "value": "none",
-                        "display": "Do not prune",
-                        "id": "none",
-                        "ui_name": "Do not prune"
-                    }
-                ]
+          "id": "add_transport",
+          "optional":false,
+          "advanced":true,
+          "allow_multiple":false,
+          "default_values":[0],
+          "field_type" : "checkbox",
+          "checkbox_options":{
+            "checked_value": 1,
+            "unchecked_value": 0
             }
         },
         {
-          "id": "add_transport",
+          "id": "always_keep_seed_hits",
+          "optional":false,
+          "advanced":true,
+          "allow_multiple":false,
+          "default_values":[1],
+          "field_type" : "checkbox",
+          "checkbox_options":{
+            "checked_value": 1,
+            "unchecked_value": 0
+            }
+        },
+        {
+          "id": "always_keep_all_metabolomic_hits",
+          "optional":false,
+          "advanced":true,
+          "allow_multiple":false,
+          "default_values":[0],
+          "field_type" : "checkbox",
+          "checkbox_options":{
+            "checked_value": 1,
+            "unchecked_value": 0
+            }
+        },
+        {
+          "id": "always_keep_initial_metabolomic_hits",
+          "optional":false,
+          "advanced":true,
+          "allow_multiple":false,
+          "default_values":[1],
+          "field_type" : "checkbox",
+          "checkbox_options":{
+            "checked_value": 1,
+            "unchecked_value": 0
+            }
+        },
+        {
+          "id": "discard_nonseed_nonmodel_nonmet_hits",
           "optional":false,
           "advanced":true,
           "allow_multiple":false,
@@ -188,6 +282,10 @@
                     "target_property": "model_id"
                 },
                 {
+                    "input_parameter": "target_id",
+                    "target_property": "target_id"
+                },
+                {
                     "input_parameter": "rule_set",
                     "target_property": "rule_set"
                 },
@@ -196,16 +294,36 @@
                     "target_property": "generations"
                 },
                 {
-                    "input_parameter": "prune",
-                    "target_property": "prune"
-                },
-                {
                     "input_parameter": "add_transport",
                     "target_property": "add_transport"
                 },
                 {
                     "input_parameter": "out_model_id",
                     "target_property": "out_model_id"
+                },
+                {
+                    "input_parameter": "max_new_cpds_per_gen_per_ruleset",
+                    "target_property": "max_new_cpds_per_gen_per_ruleset"
+                },
+                {
+                    "input_parameter": "metabolomics_data",
+                    "target_property": "metabolomics_data"
+                },
+                {
+                    "input_parameter": "always_keep_seed_hits",
+                    "target_property": "always_keep_seed_hits"
+                },
+                {
+                    "input_parameter": "always_keep_all_metabolomic_hits",
+                    "target_property": "always_keep_all_metabolomic_hits"
+                },
+                {
+                    "input_parameter": "always_keep_initial_metabolomic_hits",
+                    "target_property": "always_keep_initial_metabolomic_hits"
+                },
+                {
+                    "input_parameter": "discard_nonseed_nonmodel_nonmet_hits",
+                    "target_property": "discard_nonseed_nonmodel_nonmet_hits"
                 }
             ],
             "output_mapping": [

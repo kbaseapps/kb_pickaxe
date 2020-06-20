@@ -29,13 +29,13 @@ our $CallContext;
 
 our %return_counts = (
         'runpickaxe' => 1,
-        'find_genes_for_novel_reactions' => 1,
+        'find_similar_modelseed_reactions' => 1,
         'status' => 1,
 );
 
 our %method_authentication = (
         'runpickaxe' => 'required',
-        'find_genes_for_novel_reactions' => 'required',
+        'find_similar_modelseed_reactions' => 'required',
 );
 
 sub _build_valid_methods
@@ -43,7 +43,7 @@ sub _build_valid_methods
     my($self) = @_;
     my $methods = {
         'runpickaxe' => 1,
-        'find_genes_for_novel_reactions' => 1,
+        'find_similar_modelseed_reactions' => 1,
         'status' => 1,
     };
     return $methods;

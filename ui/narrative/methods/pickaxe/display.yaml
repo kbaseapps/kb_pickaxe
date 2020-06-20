@@ -31,31 +31,61 @@ parameters :
             Compound Source
         short-hint : |
             FBAModel or CompoundSet with source compounds
+    target_id :
+        ui-name : |
+            Target Compound Structures
+        short-hint : |
+            Set of structures that pathways are being sought for (ensures these will not be pruned)
     rule_set :
         ui-name : |
             Reaction rule set
         short-hint : |
-            The set of reaction rules which will be applied to the compounds
+            The sets of reaction rules which will be applied to the compounds
     generations :
         ui-name : |
             Number of generations
         short-hint : |
             The nuber of times reaction rules will be applied to the compounds
-    prune :
-        ui-name : |
-           Pruning Compound Set
-        short-hint : |
-            Prune model output to only include reaction pathways terminating in a compound in this set
     add_transport :
         ui-name : |
            Add Transport Reactions
         short-hint : |
-            Add reactions to allow uptake of all starting compounds.
+           Add reactions to allow transport of all target compounds and metabolomic data hits
     out_model_id :
         ui-name : |
-            Output Model Name
+           Output Model Name
         short-hint : |
            Name of new model
+    max_new_cpds_per_gen_per_ruleset :
+        ui-name : |
+           Max Compounds Per Generation
+        short-hint : |
+           Max compounds to be retained per generation per ruleset 
+    metabolomics_data :
+        ui-name : |
+           Metabolomics Data Filter
+        short-hint : |
+           Metabolomics data to user as filter
+    always_keep_seed_hits :
+        ui-name : |
+           Always Keep SEED Compounds
+        short-hint : |
+           Retain every SEED compound encountered regardless of compounds per generation limit
+    always_keep_all_metabolomic_hits :
+        ui-name : |
+           Always Keep All Metabolomics Hits
+        short-hint : |
+           Retain every metabolomic hit encountered regardless of compounds per generation limit
+    always_keep_initial_metabolomic_hits :
+        ui-name : |
+           Always Keep Initial Metabolomics Hits
+        short-hint : |
+           Retain intial metabolomic hits encountered regardless of compounds per generation limit
+    discard_nonseed_nonmodel_nonmet_hits :
+        ui-name : |
+           Discard Non-SEED Non-Model Non-Metabolomic Compounds
+        short-hint : |
+           Discard all compounds that are not in SEED, the input model, the target list, or the input metabolomics data 
 description : |
     <p>This is a Narative application for running <a href="https://github.com/JamesJeffryes/MINE-Database/blob/master/minedatabase/pickaxe.py">
     Pickaxe </a> which generates novel compounds based enzymatic and spontanios
@@ -78,7 +108,7 @@ description : |
      xenodegradation pathways, synthesis of value added compounds, and
      simulation of thermodynamic landscapes.</p>
 
-     <p>Implimented in KBase by: Janaka Edirisinghe & James Jeffryes</p>
+     <p>Implimented in KBase by: Christopher Henry, Janaka Edirisinghe, & James Jeffryes</p>
 
 publications :
     -
