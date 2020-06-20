@@ -325,7 +325,7 @@ sub find_similar_modelseed_reactions
 	    		if (defined($rxnhash->{$data->{$inrxn}->[$i]->[1]})) {
 	    			$core = "yes";
 	    		}
-	    		push(@{$simrxn},[$inrxn,$mdl_rxn_hash->{$inrxn}->definition(),$data->{$inrxn}->[$i]->[1],$equation,$inrxn,$data->{$inrxn}->[$i]->[0],$inrxn,$data->{$inrxn}->[$i]->[0],$core])
+	    		push(@{$simrxn},[$inrxn,$mdl_rxn_hash->{$inrxn}->definition(),$data->{$inrxn}->[$i]->[1],$equation,$inrxn,$data->{$inrxn}->[$i]->[0],$inrxn,$data->{$inrxn}->[$i]->[0],$core]);
 	    		push(@{$return->{similar_reactions}},[$data->{$inrxn}->[$i]->[1],$inrxn,$data->{$inrxn}->[$i]->[0],0]);
 	    	}
     }
@@ -333,7 +333,7 @@ sub find_similar_modelseed_reactions
    	my $template_hash = {
 		similar_rxn_data => Bio::KBase::ObjectAPI::utilities::TOJSON($simrxn)
 	};	
-    $htmlreport = Bio::KBase::utilities::build_report_from_template("FindSimilarReactions",$template_hash);
+    my $htmlreport = Bio::KBase::utilities::build_report_from_template("FindSimilarReactions",$template_hash);
 	Bio::KBase::utilities::print_report_message({message => $htmlreport,append => 0,html => 1});
     $fbaimpl->util_finalize_call({
 		output => $return,
