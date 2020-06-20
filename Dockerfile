@@ -6,7 +6,9 @@ MAINTAINER KBase Developer
 # any required dependencies for your module.
 
 RUN apt-get update
-RUN cpanm -i Config::IniFiles
+COPY ./cpanfile /kb/module/cpanfile
+WORKDIR /kb/module
+RUN cpanm --installdeps .
 RUN apt-get -y install nano
 
 # -----------------------------------------
