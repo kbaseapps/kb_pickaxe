@@ -3495,17 +3495,16 @@ sub func_run_pickaxe {
 	    prune => "none",
 	    add_transport => 0,
 	    out_model_id => $params->{model_id}.".pickax",
-	    compounds => [],
 	    template_id => "gramneg",
 	    template_workspace => undef,
 	    metabolomics_data => undef,
 	    metabolomics_workspace => $params->{workspace},
 	    model_workspace => $params->{workspace},
 	    compound_limit => 100000,
-	    keep_modelseed_cpds => 1,
-    		keep_metabolomic_peaks => 1,
-    		keep_only_initial_metabolomic_hits => 0,
-    		keep_all => 1,
+	    always_keep_seed_hits => 1,
+    		always_keep_all_metabolomic_hits => 0,
+    		always_keep_initial_metabolomic_hits => 1,
+    		discard_nonseed_nonmodel_nonmet_hits => 1,
     		target_id => undef,
     		target_workspace => $params->{workspace},
     		max_new_cpds_per_gen_per_ruleset => 5000
@@ -3933,15 +3932,15 @@ sub func_run_pickaxe {
 	                #Adding the compound to the model
 	                $datachannel->{rulesetcpds}->{$ruleset}->{$id} = 1;
 	                #Checking that the generated compound if a metabolomics hit
-	                Bio::KBase::ObjectAPI::functions::check_for_peakmatch($datachannel->{metabolomics_data},$datachannel->{cpd_hits},$datachannel->{peak_hits},$cpddata,$datachannel->{currentgen},$ruleset,0,$datachannel->{KBaseMetabolomicsObject},$params->{keep_only_initial_metabolomic_hits});
+	                Bio::KBase::ObjectAPI::functions::check_for_peakmatch($datachannel->{metabolomics_data},$datachannel->{cpd_hits},$datachannel->{peak_hits},$cpddata,$datachannel->{currentgen},$ruleset,0,$datachannel->{KBaseMetabolomicsObject},$params->{always_keep_all_metabolomic_hits});
 	                $cpddata->{formula} = $formula;
 	                if (!defined($datachannel->{cpdhash}->{$id})) {
 	                    $cpddata->{formula} = $formula;
 	                    $datachannel->{cpdhash}->{$id} = $cpddata;
 	                    if (defined($datachannel->{targethash}->{$cpddata->{smiles}}) ||
 							$array->[1] eq "Coreactant" || defined($input_ids->{$id}) ||
-	                        ($params->{keep_modelseed_cpds} == 1 && $id =~ /cpd\d+/) ||
-	                        ($params->{keep_metabolomic_peaks} == 1 && defined($cpddata->{dblinks}->{$datachannel->{MetabolomicsDBLINKSKey}}) && !defined($cpddata->{numerical_attributes}->{redundant}))) {
+	                        ($params->{always_keep_seed_hits} == 1 && $id =~ /cpd\d+/) ||
+	                        ($params->{always_keep_all_metabolomic_hits}+$params->{always_keep_initial_metabolomic_hits} >= 1 && defined($cpddata->{dblinks}->{$datachannel->{MetabolomicsDBLINKSKey}}) && !defined($cpddata->{numerical_attributes}->{redundant}))) {
 	                        $newcpdcount++;
 	                        push(@{$datachannel->{fbamodel}->{modelcompounds}},$cpddata);
 	                        $cpddata->{numerical_attributes}->{generation} = $datachannel->{currentgen};
@@ -3960,7 +3959,7 @@ sub func_run_pickaxe {
 	                }   
 	            }
 	            #If keeping all compounds and seed, targets, metabolite hits are under the limit, fill in remaining slots with diverse compounds
-	            if ($newcpdcount < $params->{max_new_cpds_per_gen_per_ruleset} && $params->{keep_all} == 1) {
+	            if ($newcpdcount < $params->{max_new_cpds_per_gen_per_ruleset} && $params->{discard_nonseed_nonmodel_nonmet_hits} == 0) {
 	            		my $remaining = $params->{max_new_cpds_per_gen_per_ruleset} - $newcpdcount;
 	            		for (my $i=0; $i < $remaining; $i++) {
 	            			my $keylist = [keys(%{$initially_pruned})];
@@ -5920,10 +5919,10 @@ sub load_matrix {
 }
 
 sub check_for_peakmatch {
-	my ($metabolomics_data,$cpd_hit,$peak_hit,$cpddata,$generation,$ruleset,$noall,$dbkey,$keep_only_initial_hits) = @_;
+	my ($metabolomics_data,$cpd_hit,$peak_hit,$cpddata,$generation,$ruleset,$noall,$dbkey,$keep_all_hits) = @_;
 	my $typelist = ["inchikey","smiles","formula"];
-	if (!defined($keep_only_initial_hits)) {
-		$keep_only_initial_hits = 0;
+	if (!defined($keep_all_hits)) {
+		$keep_all_hits = 0;
 	}
 	if (!defined($dbkey)) {
 		$dbkey = "MetabolomicsDataset";
@@ -5939,7 +5938,7 @@ sub check_for_peakmatch {
 			}
 			if (defined($metabolomics_data->{$type."_to_peaks"}->{$cpdatt})) {
 				foreach my $peakid (keys(%{$metabolomics_data->{$type."_to_peaks"}->{$cpdatt}})) {
-					if ($keep_only_initial_hits == 1) {
+					if ($keep_all_hits == 0) {
 						foreach my $cpdid (keys(%{$peak_hit->{all}->{allgen}->{$peakid}->{$type}})) {
 							my $data = $peak_hit->{all}->{allgen}->{$peakid}->{$type}->{$cpdid};
 							if (defined($data->{numerical_attributes}->{generation}) && $data->{numerical_attributes}->{generation} > 0 && $data->{numerical_attributes}->{generation} < $generation) {
