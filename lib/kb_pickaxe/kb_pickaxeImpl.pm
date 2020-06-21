@@ -19,12 +19,10 @@ This method wraps the PicAxe tool.
 =cut
 
 #BEGIN_HEADER
+use fba_tools::fba_toolsImpl;
 use Bio::KBase::AuthToken;
 use Workspace::WorkspaceClient;
 use Config::IniFiles;
-my $fbaimpl = fba_tools::fba_toolsImpl->new();
-Bio::KBase::kbaseenv::create_context_from_client_config();
-Bio::KBase::ObjectAPI::functions::set_handler($fbaimpl);
 #END_HEADER
 
 sub new
@@ -258,8 +256,8 @@ sub find_similar_modelseed_reactions
     my $ctx = $kb_pickaxe::kb_pickaxeServer::CallContext;
     my($return);
     #BEGIN find_similar_modelseed_reactions
-    $fbaimpl->util_initialize_call($params,$ctx);
-    my $model = $fbaimpl->util_get_object(Bio::KBase::utilities::buildref($params->{query_model_ref},$params->{workspace}));
+    $self->{fbaimpl}->util_initialize_call($params,$ctx);
+    my $model = $self->{fbaimpl}->util_get_object(Bio::KBase::utilities::buildref($params->{query_model_ref},$params->{workspace}));
     my $mdlrxns = $model->modelreactions();
     my $ms_rxn_hash = Bio::KBase::utilities::reaction_hash();
     my $reactionset = [split(/,/,$params->{reaction_set})];
@@ -335,7 +333,7 @@ sub find_similar_modelseed_reactions
 	};	
     my $htmlreport = Bio::KBase::utilities::build_report_from_template("FindSimilarReactions",$template_hash);
 	Bio::KBase::utilities::print_report_message({message => $htmlreport,append => 0,html => 1});
-    $fbaimpl->util_finalize_call({
+    $self->{fbaimpl}->util_finalize_call({
 		output => $return,
 		workspace => $params->{workspace},
 		report_name => $reactionset->[0].".similarrxn.report",
