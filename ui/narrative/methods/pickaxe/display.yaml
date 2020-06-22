@@ -36,9 +36,9 @@ parameters :
             Target Compound Structures
         short-hint : |
             Set of structures that pathways are being sought for (ensures these will not be pruned)
-    rule_set :
+    rule_sets :
         ui-name : |
-            Reaction rule set
+            Reaction rule sets
         short-hint : |
             The sets of reaction rules which will be applied to the compounds
     generations :
@@ -66,24 +66,24 @@ parameters :
            Metabolomics Data Filter
         short-hint : |
            Metabolomics data to user as filter
-    always_keep_seed_hits :
+    keep_seed_hits :
         ui-name : |
-           Always Keep SEED Compounds
+           Keep SEED Compounds
         short-hint : |
            Retain every SEED compound encountered regardless of compounds per generation limit
-    always_keep_all_metabolomic_hits :
+    keep_metabolomic_hits :
         ui-name : |
-           Always Keep All Metabolomics Hits
+           Keep Metabolomics Hits
         short-hint : |
            Retain every metabolomic hit encountered regardless of compounds per generation limit
-    always_keep_initial_metabolomic_hits :
+    max_hits_to_keep_per_peak :
         ui-name : |
-           Always Keep Initial Metabolomics Hits
+           Max Hits Per Peak
         short-hint : |
-           Retain intial metabolomic hits encountered regardless of compounds per generation limit
-    discard_nonseed_nonmodel_nonmet_hits :
+           Retain only up to this number of distinct compounds for each metabolomic peak hit
+    discard_orphan_hits :
         ui-name : |
-           Discard Non-SEED Non-Model Non-Metabolomic Compounds
+           Discard Orphan Compounds
         short-hint : |
            Discard all compounds that are not in SEED, the input model, the target list, or the input metabolomics data 
 description : |

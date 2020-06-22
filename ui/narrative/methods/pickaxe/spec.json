@@ -45,7 +45,7 @@
             }
         },
         {
-            "id": "rule_set",
+            "id": "rule_sets",
             "optional": false,
             "advanced": false,
             "allow_multiple": true,
@@ -111,89 +111,44 @@
             }
         },
         {
-		    "id" : "generations",
-		    "optional" : false,
-		    "advanced" : false,
-		    "allow_multiple" : false,
-		    "default_values" : [ 1 ],
-			"field_type": "dropdown",
-            "dropdown_options": {
-                "options": [
-                    {
-                        "value": 1,
-                        "display": "One",
-                        "id": "One",
-                        "ui_name": "One"
-                    },
-                    {
-                        "value": 2,
-                        "display": "Two",
-                        "id": "Two",
-                        "ui_name": "Two"
-                    },
-                    {
-                        "value": 3,
-                        "display": "Three",
-                        "id": "Three",
-                        "ui_name": "Three"
-                    },
-                    {
-                        "value": 4,
-                        "display": "Four",
-                        "id": "Four",
-                        "ui_name": "Four"
-                    },
-                    {
-                        "value": 5,
-                        "display": "Five",
-                        "id": "Five",
-                        "ui_name": "Five"
-                    }
-                ]
-            }
-		},
+			"id" : "generations",
+			"default_values" : [
+            	"1"
+			],
+			"advanced" : true,
+			"field_type" : "text",
+			"allow_multiple" : false,
+			"optional" : true,
+			"text_options" : {
+				"validate_as" : "int"
+			}
+      	},
 		{
-		    "id" : "max_new_cpds_per_gen_per_ruleset",
-		    "optional" : false,
-		    "advanced" : true,
-		    "allow_multiple" : false,
-		    "default_values" : [ 3000 ],
-			"field_type": "dropdown",
-            "dropdown_options": {
-                "options": [
-                    {
-                        "value": 1000,
-                        "display": "1000",
-                        "id": "1000",
-                        "ui_name": "1000"
-                    },
-                    {
-                        "value": 2000,
-                        "display": "2000",
-                        "id": "2000",
-                        "ui_name": "2000"
-                    },
-                    {
-                        "value": 3000,
-                        "display": "3000",
-                        "id": "3000",
-                        "ui_name": "3000"
-                    },
-                    {
-                        "value": 4000,
-                        "display": "4000",
-                        "id": "4000",
-                        "ui_name": "4000"
-                    },
-                    {
-                        "value": 5000,
-                        "display": "5000",
-                        "id": "5000",
-                        "ui_name": "5000"
-                    }
-                ]
-            }
-		},
+			"id" : "max_hits_to_keep_per_peak",
+			"default_values" : [
+            	"10"
+			],
+			"advanced" : true,
+			"field_type" : "text",
+			"allow_multiple" : false,
+			"optional" : true,
+			"text_options" : {
+				"validate_as" : "int"
+			}
+      	},
+      	{
+			"id" : "max_new_cpds_per_gen_per_ruleset",
+			"default_values" : [
+            	"3000"
+			],
+			"advanced" : true,
+			"field_type" : "text",
+			"allow_multiple" : false,
+			"optional" : true,
+			"text_options" : {
+				"validate_as" : "int"
+			}
+      	},
         {
           "id": "add_transport",
           "optional":false,
@@ -207,7 +162,7 @@
             }
         },
         {
-          "id": "always_keep_seed_hits",
+          "id": "keep_seed_hits",
           "optional":false,
           "advanced":true,
           "allow_multiple":false,
@@ -219,19 +174,7 @@
             }
         },
         {
-          "id": "always_keep_all_metabolomic_hits",
-          "optional":false,
-          "advanced":true,
-          "allow_multiple":false,
-          "default_values":[0],
-          "field_type" : "checkbox",
-          "checkbox_options":{
-            "checked_value": 1,
-            "unchecked_value": 0
-            }
-        },
-        {
-          "id": "always_keep_initial_metabolomic_hits",
+          "id": "keep_metabolomic_hits",
           "optional":false,
           "advanced":true,
           "allow_multiple":false,
@@ -243,7 +186,7 @@
             }
         },
         {
-          "id": "discard_nonseed_nonmodel_nonmet_hits",
+          "id": "discard_orphan_hits",
           "optional":false,
           "advanced":true,
           "allow_multiple":false,
@@ -286,8 +229,8 @@
                     "target_property": "target_id"
                 },
                 {
-                    "input_parameter": "rule_set",
-                    "target_property": "rule_set"
+                    "input_parameter": "rule_sets",
+                    "target_property": "rule_sets"
                 },
                 {
                     "input_parameter": "generations",
@@ -310,20 +253,20 @@
                     "target_property": "metabolomics_data"
                 },
                 {
-                    "input_parameter": "always_keep_seed_hits",
-                    "target_property": "always_keep_seed_hits"
+                    "input_parameter": "keep_seed_hits",
+                    "target_property": "keep_seed_hits"
                 },
                 {
-                    "input_parameter": "always_keep_all_metabolomic_hits",
-                    "target_property": "always_keep_all_metabolomic_hits"
+                    "input_parameter": "keep_metabolomic_hits",
+                    "target_property": "keep_metabolomic_hits"
                 },
                 {
-                    "input_parameter": "always_keep_initial_metabolomic_hits",
-                    "target_property": "always_keep_initial_metabolomic_hits"
+                    "input_parameter": "max_hits_to_keep_per_peak",
+                    "target_property": "max_hits_to_keep_per_peak"
                 },
                 {
-                    "input_parameter": "discard_nonseed_nonmodel_nonmet_hits",
-                    "target_property": "discard_nonseed_nonmodel_nonmet_hits"
+                    "input_parameter": "discard_orphan_hits",
+                    "target_property": "discard_orphan_hits"
                 }
             ],
             "output_mapping": [
