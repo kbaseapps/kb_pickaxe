@@ -4145,10 +4145,8 @@ sub func_run_pickaxe {
 		my $wsmeta = $handler->util_save_object($datachannel->{fbamodel},$params->{workspace}."/".$params->{out_model_id},{type => "KBaseFBA.FBAModel"});
 	}
 	return {
-		peak_hits => $datachannel->{peak_hits},
 		cpd_hits => $datachannel->{cpd_hits},
 		operator_counts => $datachannel->{operator_counts},
-		metabolomics_data => $datachannel->{metabolomics_data}
 	};
 }
 
