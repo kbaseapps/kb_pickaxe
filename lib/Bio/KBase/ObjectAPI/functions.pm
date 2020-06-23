@@ -3727,6 +3727,7 @@ sub func_run_pickaxe {
 				}
 				#Checking input compoundset for metabolomics matches
 				Bio::KBase::ObjectAPI::functions::check_for_peakmatch($datachannel->{metabolomics_data},$datachannel->{cpd_hits},$datachannel->{peak_hits},$cpddatahash->{$cpds->[$i]->id()},0,"model",0,$datachannel->{KBaseMetabolomicsObject});
+				$cpddatahash->{$id}->{formula} = $cpds->[$i]->formula()
 			}
 			my $rxns = $object->modelreactions();
 			for (my $i=0; $i < @{$rxns}; $i++) {
@@ -4135,6 +4136,11 @@ sub func_run_pickaxe {
 		}
 	}
 	if ($datachannel->{currentgen} == 1 && defined($datachannel->{fbamodel})) {
+		for (my $i=0; $i < @{$datachannel->{fbamodel}->{modelcompounds}}; $i++) {
+			if (!defined($datachannel->{fbamodel}->{modelcompounds}->[$i]->{formula})) {
+				$datachannel->{fbamodel}->{modelcompounds}->[$i]->{formula} = "";
+			}
+		}
 		$datachannel->{fbamodel} = Bio::KBase::ObjectAPI::KBaseFBA::FBAModel->new($datachannel->{fbamodel});
 		my $wsmeta = $handler->util_save_object($datachannel->{fbamodel},$params->{workspace}."/".$params->{out_model_id},{type => "KBaseFBA.FBAModel"});
 	}
