@@ -4035,7 +4035,7 @@ sub func_run_pickaxe {
 								$protons += $multiplier*$coef;
 							} else {
 								push(@{$reagents},{
-									coefficient => $multiplier*$coef,
+									coefficient => $multiplier*$coef+0,
 									modelcompound_ref => "~/modelcompounds/id/".$cpdid
 								});
 							}
@@ -4045,7 +4045,7 @@ sub func_run_pickaxe {
 					$protons = $protons - $netcharge;
 					if ($protons != 0) {
 						push(@{$reagents},{
-							coefficient => $protons,
+							coefficient => $protons+0,
 							modelcompound_ref => "~/modelcompounds/id/cpd00067_c0"
 						});
 					}
@@ -4072,8 +4072,10 @@ sub func_run_pickaxe {
 							$reactstring .= "";
 						} elsif ($sorted_reagents->[$j]->{coefficient} < 0) { 
 							$reactstring .= "(".(-1*$sorted_reagents->[$j]->{coefficient}).")".$cpdid;
+							$sorted_reagents->[$j]->{coefficient} += 0;
 						} else {
 							$prodstring .= "(".($sorted_reagents->[$j]->{coefficient}).")".$cpdid;
+							$sorted_reagents->[$j]->{coefficient} += 0;
 						}
 					}
 					my $code = $reactstring."=".$prodstring;
