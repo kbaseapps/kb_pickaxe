@@ -251,11 +251,12 @@ $(document).ready(function() {
                 title: "Rule",
                 data:   d => d.id,
                 render: ( data, type, d, meta ) => {
-                    return type === 'display'
-                        ? return '<img id="operator-image" height="400" ng-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/'+d.id+'.png" err-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/'+d.id+'.svg" src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/'+d.id+'.svg">';
-                        : "";
+                    if (type === 'display') {
+						return '<img id="operator-image" height="400" ng-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.png" err-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg" src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg">';
+                    }
+                    return d.id;
                 }
-            }
+            },
             reactions: {
                 title: "Reactions",
                 data:   d => d.reactions,
@@ -400,20 +401,6 @@ $(document).ready(function() {
                 title: "Inchikey",
                 data:   d => d.inchikey,
             },
-            structure: {
-                title: "Structure",
-                data:   d => d.smiles,
-                render: ( data, type, d, meta ) => {
-                    if (type === 'display') {
-						var p = biochem_api('biochem', 'depict_compounds', {structures: [d.smiles]
-							}).then(function(data) {
-								return data[0];
-							});
-						return p;
-                    } 
-                    return "";
-                }
-            },
             reactions: {
                 title: "Reactions",
                 data:   d => d.reactions,
@@ -436,7 +423,6 @@ $(document).ready(function() {
             'charge',
             'smiles',
             'inchikey',
-            'structure',
             'reactions',
             'peaks'
         ],
