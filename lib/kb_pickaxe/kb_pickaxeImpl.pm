@@ -153,9 +153,10 @@ sub runpickaxe
     my($return);
     #BEGIN runpickaxe
     $params = $self->{fbaimpl}->util_initialize_call($params,$ctx);
-	$return = Bio::KBase::ObjectAPI::functions::func_run_pickaxe($params);
+	Bio::KBase::ObjectAPI::functions::func_run_pickaxe($params);
+    $return = {};
     $self->{fbaimpl}->util_finalize_call({
-		output => {},
+		output => $return,
 		workspace => $params->{workspace},
 		report_name => $params->{out_model_id}.".pickaxe.report",
 		model_ref => $params->{workspace}."/".$params->{out_model_id}
