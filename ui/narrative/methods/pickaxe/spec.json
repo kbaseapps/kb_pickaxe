@@ -1,14 +1,14 @@
 {
-    "ver": "1.3.0",
+    "ver": "2.0",
     "authors": [
-        "janaka", "jjeffryes"
+        "janaka", "jjeffryes","chenry"
     ],
     "contact": "janakaed@anl.gov",
     "visible": true,
     "categories": ["active"],
     "widgets": {
         "input": null,
-        "output": "kbaseTabTable"
+        "output" : "no-display"
     },
     "parameters": [
         {
@@ -271,17 +271,17 @@
             ],
             "output_mapping": [
                 {
-                  "constant_value": "KBaseFBA.FBAModel",
-                  "target_property": "type"
-                },
-                {
-                  "input_parameter": "out_model_id",
-                  "target_property": "obj"
-                },
-                {
-                  "narrative_system_variable": "workspace",
-                  "target_property": "ws"
-                }
+				"service_method_output_path": [0, "report_name"],
+				"target_property": "report_name"
+				},
+				{
+					"service_method_output_path": [0, "report_ref"],
+					"target_property": "report_ref"
+				},
+				{
+					"narrative_system_variable": "workspace",
+					"target_property": "workspace_name"
+				}
               ]
         }
     },
