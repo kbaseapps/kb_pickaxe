@@ -3508,7 +3508,7 @@ sub func_run_pickaxe {
 		target_workspace => $params->{workspace},
 		max_new_cpds_per_gen_per_ruleset => 3000,
 		max_hits_to_keep_per_peak => 10,
-		condition => undef
+		condition => []
 	});
 	#Setting generation if this is the first time calling the function
 	my $first = 1;
@@ -3598,9 +3598,9 @@ sub func_run_pickaxe {
 				$data = Bio::KBase::ObjectAPI::functions::process_matrix($object);
 			}
 			my $column = -1;
-			if (defined($params->{condition})) {
-				for (my $i=0; $i < @{$data->{data}->{col_ids}}; $i++) {
-					if ($data->{data}->{col_ids}->[$i] eq $params->{condition}) {
+			if (defined($params->{condition}->[0])) {
+				for (my $i=0; $i < @{$data->{col_ids}}; $i++) {
+					if ($data->{col_ids}->[$i] eq $params->{condition}->[0]) {
 						$column = $i;
 						last;
 					}

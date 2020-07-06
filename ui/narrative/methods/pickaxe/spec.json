@@ -47,7 +47,7 @@
 		{
 			"field_type" : "textsubdata",
 			"allow_multiple" : false,
-			"optional" : false,
+			"optional" : true,
 			"id" : "condition",
 			"default_values" : [
 				""
@@ -58,12 +58,13 @@
 				"show_src_obj" : true,
 				"subdata_selection" : {
 					"path_to_subdata" : [
-						"col_mapping"
+						"data",
+                        "col_ids"
 					],
 					"parameter_id" : "metabolomics_data",
 					"selection_id" : "id",
 					"subdata_included" : [
-						"col_mapping/[*]"
+						"data/col_ids"
 					]
             	},
 				"multiselection" : false
