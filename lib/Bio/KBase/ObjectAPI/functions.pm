@@ -3598,7 +3598,7 @@ sub func_run_pickaxe {
 				$data = Bio::KBase::ObjectAPI::functions::process_matrix($object);
 			}
 			my $column = -1;
-			if (defined($params->{condition})) {
+			if (defined($params->{condition}) && length($params->{condition}) > 0) {
 				for (my $i=0; $i < @{$data->{col_ids}}; $i++) {
 					if ($data->{col_ids}->[$i] eq $params->{condition}) {
 						$column = $i;
