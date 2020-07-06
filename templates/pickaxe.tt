@@ -147,45 +147,6 @@
 	</div>
 </div>
 <script>
-function call_ajax(_url, _method, _params, _callback) {
-	if (! _callback){
-		_callback = function(data) {
-			return data.result[0];
-		}
-	}
-	var rpc = {
-		params: [_params],
-		method: _method,
-		version: "1.1",
-		id: String(Math.random()).slice(2),
-	};
-
-	var prom = $.ajax({
-		url: _url,
-		type: 'POST',
-		processData: false,
-		data: JSON.stringify(rpc),
-		beforeSend: function (xhr) {
-			if (self.token)
-				xhr.setRequestHeader("Authorization", self.token);
-		}
-	}).then(_callback);
-	return prom;
-}
-
-function biochem_api(method, params) {
-	var url;
-	s_url = window.kbconfig.urls.service_wizard || 'https://kbase.us/services/service_wizard';
-	s_params = {'module_name' : "BiochemistryAPI", 'version' : 'beta'};
-	s_method = 'ServiceWizard.get_service_status';
-	callback = function(service_status_ret) {
-		srv_url = service_status_ret['result'][0]['url'];
-		console.log(srv_url);
-		return call_ajax(srv_url, 'BiochemistryAPI.'+method, params);
-	}
-	return call_ajax(s_url, s_method, s_params, callback);
-}
-
 $(document).ready(function() {
     "use strict";
     [%  USE JSON; %]
@@ -252,7 +213,7 @@ $(document).ready(function() {
                 data:   d => d.id,
                 render: ( data, type, d, meta ) => {
                     if (type === 'display') {
-						return '<img id="operator-image" height="400" ng-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.png" err-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg" src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg">';
+						return '<img id="operator-image" height="400" ng-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg" err-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg" src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.png">';
                     }
                     return d.id;
                 }
@@ -346,19 +307,25 @@ $(document).ready(function() {
 
             },
             rules: {
-                title: "Peaks",
+                title: "Rules",
                 data:   d => d.rules,
                 render: ( data, type, d, meta ) => {
                     return type === 'display'
                         ? d.rules.join(", ")
                         : d.rules.join("|");
                 }
+            },
+            generation: {
+                title: "Generation",
+                data:   d => d.generation,
+
             }
         },
         colOrder: [
             'id',
             'equation',
-            'rules'
+            'rules',
+            'generation'
         ],
     },
     compounds = {
@@ -406,6 +373,11 @@ $(document).ready(function() {
                 data:   d => d.reactions,
 
             },
+            generation: {
+                title: "Generation",
+                data:   d => d.generation,
+
+            },
             peaks: {
                 title: "Peaks",
                 data:   d => d.peaks,
@@ -424,6 +396,7 @@ $(document).ready(function() {
             'smiles',
             'inchikey',
             'reactions',
+            'generation',
             'peaks'
         ],
     }

@@ -44,6 +44,34 @@
                 "valid_ws_types": [ "KBaseMatrices.ChemicalAbundanceMatrix" ]
             }
         },
+		{
+			"field_type" : "textsubdata",
+			"allow_multiple" : false,
+			"optional" : false,
+			"id" : "condition",
+			"default_values" : [
+				""
+			],
+			"advanced" : false,
+			"textsubdata_options" : {
+				"allow_custom" : false,
+				"show_src_obj" : true,
+				"subdata_selection" : {
+					"path_to_subdata" : [
+						"col_mapping"
+					],
+					"parameter_id" : "metabolomics_data",
+					"selection_id" : "id",
+					"subdata_included" : [
+						"col_mapping/[*]"
+					]
+            	},
+				"multiselection" : false
+			},
+			"text_options" : {
+				"valid_ws_types" : []
+			}
+		},
         {
             "id": "rule_sets",
             "optional": false,
@@ -64,48 +92,6 @@
                         "display": "Spontaneous Rules",
                         "id": "spont",
                         "ui_name": "Spontaneous Rules"
-                    },
-                    {
-                        "value": "retro_rules_dia2",
-                        "display": "RetroRules Diameter 2",
-                        "id": "retro_rules_dia2",
-                        "ui_name": "RetroRules Diameter 2"
-                    },
-                    {
-                        "value": "retro_rules_dia4",
-                        "display": "RetroRules Diameter 4",
-                        "id": "retro_rules_dia4",
-                        "ui_name": "RetroRules Diameter 4"
-                    },
-                    {
-                        "value": "retro_rules_dia6",
-                        "display": "RetroRules Diameter 6",
-                        "id": "retro_rules_dia6",
-                        "ui_name": "RetroRules Diameter 6"
-                    },
-                    {
-                        "value": "retro_rules_dia8",
-                        "display": "RetroRules Diameter 8",
-                        "id": "retro_rules_dia8",
-                        "ui_name": "RetroRules Diameter 8"
-                    },
-                    {
-                        "value": "retro_rules_dia10",
-                        "display": "RetroRules Diameter 10",
-                        "id": "retro_rules_dia10",
-                        "ui_name": "RetroRules Diameter 10"
-                    },
-                    {
-                        "value": "retro_rules_dia12",
-                        "display": "RetroRules Diameter 12",
-                        "id": "retro_rules_dia12",
-                        "ui_name": "RetroRules Diameter 12"
-                    },
-                    {
-                        "value": "retro_rules_dia16",
-                        "display": "RetroRules Diameter 16",
-                        "id": "retro_rules_dia16",
-                        "ui_name": "RetroRules Diameter 16"
                     }
                 ]
             }
@@ -115,7 +101,7 @@
 			"default_values" : [
             	"1"
 			],
-			"advanced" : true,
+			"advanced" : false,
 			"field_type" : "text",
 			"allow_multiple" : false,
 			"optional" : true,
@@ -252,6 +238,10 @@
                     "input_parameter": "metabolomics_data",
                     "target_property": "metabolomics_data"
                 },
+                {
+               		"input_parameter" : "condition",
+               		"target_property" : "condition"
+            	},
                 {
                     "input_parameter": "keep_seed_hits",
                     "target_property": "keep_seed_hits"

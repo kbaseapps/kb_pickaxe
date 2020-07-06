@@ -66,6 +66,11 @@ parameters :
            Metabolomics Data Filter
         short-hint : |
            Metabolomics data to user as filter
+    condition :
+        ui-name : |
+           Condition to use with filter
+        short-hint : |
+           Condition to use with filter
     keep_seed_hits :
         ui-name : |
            Keep SEED Compounds

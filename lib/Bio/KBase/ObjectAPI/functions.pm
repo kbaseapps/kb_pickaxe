@@ -3491,7 +3491,7 @@ sub func_run_pickaxe {
 	my ($params,$datachannel) = @_;
 	$params = Bio::KBase::utilities::args($params,["workspace","model_id"],{
 		rule_sets => ["enzymatic"],
-		generations => 1,
+		generations => 3,
 		prune => "none",
 		add_transport => 0,
 		out_model_id => $params->{model_id}.".pickax",
@@ -3507,15 +3507,18 @@ sub func_run_pickaxe {
 		target_id => undef,
 		target_workspace => $params->{workspace},
 		max_new_cpds_per_gen_per_ruleset => 3000,
-		max_hits_to_keep_per_peak => 10
+		max_hits_to_keep_per_peak => 10,
+		condition => undef
 	});
 	#Setting generation if this is the first time calling the function
+	my $first = 1;
 	if (!defined($datachannel->{currentgen})) {
 		$datachannel->{currentgen} = 1;
 	} else {
+		$first = 0;
 		$datachannel->{currentgen}++;
 		$datachannel->{template_data}->{overview}->{generations}++;
-		push(@{$datachannel->{template_data}->{generations}},{
+		$datachannel->{template_data}->{generations}->[$datachannel->{currentgen}] = {
 			id => $datachannel->{currentgen},
 			compounds => 0,
 			reactions => 0,
@@ -3524,7 +3527,7 @@ sub func_run_pickaxe {
 			modelseed_compounds => 0,
 			filtered_compounds => 0,
 			filtered_reactions => 0
-		});	
+		};
 	}
 	#Initializing results datastructure
 	if (!defined($datachannel->{template_data})) {
@@ -3594,6 +3597,18 @@ sub func_run_pickaxe {
 				$datachannel->{MetabolomicsDBLINKSKey} = $datachannel->{KBaseMetabolomicsObject};
 				$data = Bio::KBase::ObjectAPI::functions::process_matrix($object);
 			}
+			my $column = -1;
+			if (defined($params->{condition})) {
+				for (my $i=0; $i < @{$data->{data}->{col_ids}}; $i++) {
+					if ($data->{data}->{col_ids}->[$i] eq $params->{condition}) {
+						$column = $i;
+						last;
+					}
+				}
+				if ($column == -1) {
+					Bio::KBase::utilities::error("Specified condition ".$params->{condition}." not found in input metabolomics dataset.");
+				}
+			}
 			for (my $i=0; $i < @{$data->{row_ids}}; $i++) {
 				my $peakdata = {
 					id => $data->{row_ids}->[$i],
@@ -3605,28 +3620,30 @@ sub func_run_pickaxe {
 					hits => [],
 					compounds => []
 				};
-				push(@{$datachannel->{template_data}->{peaks}},$peakdata);
-				my $types = ["inchikey","smiles","formula"];
-				my $found = 0;
-				for (my $j=0; $j < @{$types}; $j++) {
-				   if ($found == 0) {
-						for (my $k=0; $k < @{$data->{attributes}}; $k++) {
-							if ($data->{attributes}->[$k] eq $types->[$j]) {
-								my $key = $types->[$j]."_to_peaks";
-								my $value = $data->{attribute_values}->[$i]->[$k];
-								$peakdata->{$types->[$j]} = $value;
-								if ($types->[$j] eq "inchikey") {
-									my $array = [split(/[-]/,$value)];
-									$value = $array->[0];
+				if ($column == -1 || $data->{data}->[$i]->[$column] > 0) {
+					push(@{$datachannel->{template_data}->{peaks}},$peakdata);
+					my $types = ["inchikey","smiles","formula"];
+					my $found = 0;
+					for (my $j=0; $j < @{$types}; $j++) {
+					   if ($found == 0) {
+							for (my $k=0; $k < @{$data->{attributes}}; $k++) {
+								if ($data->{attributes}->[$k] eq $types->[$j]) {
+									my $key = $types->[$j]."_to_peaks";
+									my $value = $data->{attribute_values}->[$i]->[$k];
+									$peakdata->{$types->[$j]} = $value;
+									if ($types->[$j] eq "inchikey") {
+										my $array = [split(/[-]/,$value)];
+										$value = $array->[0];
+									}
+									if (length($value) > 0) {
+										$datachannel->{metabolomics_data}->{$key}->{$value}->{$data->{row_ids}->[$i]} = 1;
+										$found = 1;
+									}
+								} elsif ($data->{attributes}->[$k] eq "mz") {
+									$peakdata->{mz} = $data->{attribute_values}->[$i]->[$k];
+								} elsif ($data->{attributes}->[$k] eq "name") {
+									$peakdata->{name} = $data->{attribute_values}->[$i]->[$k];
 								}
-								if (length($value) > 0) {
-									$datachannel->{metabolomics_data}->{$key}->{$value}->{$data->{row_ids}->[$i]} = 1;
-									$found = 1;
-								}
-							} elsif ($data->{attributes}->[$k] eq "mz") {
-								$peakdata->{mz} = $data->{attribute_values}->[$i]->[$k];
-							} elsif ($data->{attributes}->[$k] eq "name") {
-								$peakdata->{name} = $data->{attribute_values}->[$i]->[$k];
 							}
 						}
 					}
@@ -3634,7 +3651,7 @@ sub func_run_pickaxe {
 			}
 		}
 	}
-	 #Loading model or compound set
+	#Loading model or compound set
 	my $seedhash =  Bio::KBase::utilities::compound_hash();
 	my $seedrxnhash =  Bio::KBase::utilities::reaction_hash();
 	#Populating structure hash data for entire SEED database
@@ -3765,6 +3782,8 @@ sub func_run_pickaxe {
 							modelcompartment_ref => "~/modelcompartments/id/c0",
 							string_attributes => {}
 						};
+						$datachannel->{cpdhash}->{$cpd->{id}}->{name} =~ s/_[a-z]\d+$//;
+						$datachannel->{modelids}->{$cpd->{id}} = 1;
 						push(@{$datachannel->{fbamodel}->{modelcompounds}},$datachannel->{cpdhash}->{$cpd->{id}});
 					}
 				}
@@ -3806,9 +3825,11 @@ sub func_run_pickaxe {
 						}
 						$input_compounds_with_structure++;
 						$input_ids->{$id} = 1;
+						$datachannel->{modelids}->{$id} = 1;
 						push(@{$input_model_array},$id."\t".$cpds->[$i]->smiles());
 						$cpddatahash->{$id}->{numerical_attributes}->{generation} = 0;
 						$datachannel->{cpdhash}->{$id} = $cpddatahash->{$id};
+						$datachannel->{cpdhash}->{$id}->{name} =~ s/_[a-z]\d+$//;
 						push(@{$datachannel->{fbamodel}->{modelcompounds}},$cpddatahash->{$id});
 					}
 					#Checking input compoundset for metabolomics matches
@@ -4006,6 +4027,7 @@ sub func_run_pickaxe {
 					if (!defined($name)) {
 						$name = $id;
 					}
+					$name =~ s/_[a-z]\d+$//;
 					#Adding compound to smiles and inchihash
 					my $cpddata = {
 						id => $id,
@@ -4057,7 +4079,7 @@ sub func_run_pickaxe {
 							$newcpdcount++;
 							push(@{$datachannel->{fbamodel}->{modelcompounds}},$cpddata);
 							$cpddata->{numerical_attributes}->{generation} = $datachannel->{currentgen};
-							$modelcpds->{$id} = 1;
+							$datachannel->{modelids}->{$id} = 1;
 						} else {
 							$initially_pruned->{$cpddata->{id}} = $cpddata;
 							$datachannel->{template_data}->{generations}->[$datachannel->{currentgen}]->{filtered_compounds}++;
@@ -4075,17 +4097,23 @@ sub func_run_pickaxe {
 				}
 				#If keeping all compounds and seed, targets, metabolite hits are under the limit, fill in remaining slots with diverse compounds
 				if ($newcpdcount < $params->{max_new_cpds_per_gen_per_ruleset} && $params->{discard_orphan_hits} == 0) {
+						#Determine how many more compounds I can add without exceeding my limit
 						my $remaining = $params->{max_new_cpds_per_gen_per_ruleset} - $newcpdcount;
+						#Deal with the situation where we did not make enough compounds to need to prune at all
+						my $prunedcount = keys(%{$initially_pruned});
+						if ($prunedcount < $remaining) {
+							$remaining = $prunedcount;
+						}
 						for (my $i=0; $i < $remaining; $i++) {
 							my $keylist = [keys(%{$initially_pruned})];
 							my $numkeys = @{$keylist};
 							my $random = int(rand($numkeys));
 							push(@{$datachannel->{fbamodel}->{modelcompounds}},$initially_pruned->{$keylist->[$random]});
 							$initially_pruned->{$keylist->[$random]}->{numerical_attributes}->{generation} = $datachannel->{currentgen};
-							$modelcpds->{$initially_pruned->{$keylist->[$random]}->{id}} = 1;
+							$datachannel->{modelids}->{$keylist->[$random]} = 1;
 							delete($initially_pruned->{$keylist->[$random]});
 							$datachannel->{template_data}->{generations}->[$datachannel->{currentgen}]->{filtered_compounds}--;
-							$datachannel->{template_data}->{overview}->{filtered_compounds}--;
+							$datachannel->{template_data}->{overview}->{filtered_compounds}--;							
 						}
 				}
 				#Adding reactions to model
@@ -4121,7 +4149,7 @@ sub func_run_pickaxe {
 								$cpdid = $cpdid_translation->{$cpdid};
 							}
 							$netcharge += $multiplier*$coef*$datachannel->{cpdhash}->{$cpdid}->{charge};
-							if (!defined($modelcpds->{$cpdid}) && !defined($input_ids->{$cpdid})) {
+							if (!defined($datachannel->{modelids}->{$cpdid})) {
 								$pruned = 1;
 							}
 							if ($cpdid =~ m/cpd00067/) {
@@ -4231,7 +4259,7 @@ sub func_run_pickaxe {
 			Bio::KBase::ObjectAPI::functions::func_run_pickaxe($params,$datachannel);
 		}
 	}
-	if ($datachannel->{currentgen} == 1 && defined($datachannel->{fbamodel})) {
+	if ($first == 1 && defined($datachannel->{fbamodel})) {
 		for (my $i=0; $i < @{$datachannel->{fbamodel}->{modelcompounds}}; $i++) {
 			if (!defined($datachannel->{fbamodel}->{modelcompounds}->[$i]->{formula})) {
 				$datachannel->{fbamodel}->{modelcompounds}->[$i]->{formula} = "";
@@ -4265,7 +4293,8 @@ sub func_run_pickaxe {
 			push(@{$datachannel->{template_data}->{reactions}},{
 				id => $rxn->id(),
 				equation => $rxn->definition(),
-				rules => $rxn->dblinks()->{PickAxe}
+				rules => $rxn->dblinks()->{PickAxe},
+				generation => $generation
 			});
 		}
 		foreach my $ruleset (keys(%{$ruleshash})) {
@@ -4282,7 +4311,12 @@ sub func_run_pickaxe {
 		foreach my $gen (@{$datachannel->{template_data}->{generations}}) {
 			my $count = keys(%{$datachannel->{peak_hits}->{all}->{$gen->{id}}});
 			$gen->{peaks} = $count;
+			if ($gen->{id} == 0) {
+				$datachannel->{template_data}->{overview}->{peaks_hit_model} = $count;
+			}
 		}
+		$datachannel->{template_data}->{overview}->{peaks_hit_generated} = keys(%{$datachannel->{peak_hits}->{all}->{allgen}})-$datachannel->{template_data}->{overview}->{peaks_hit_model};
+		$datachannel->{template_data}->{overview}->{peaks_hit_modelseed} = keys(%{$datachannel->{peak_hits}->{seed}->{allgen}})+0;
 		foreach my $cpd (@{$mdlcpds}) {
 			$datachannel->{template_data}->{overview}->{compounds}++;
 			if (!defined($rxncounts->{$cpd->id()})) {
@@ -4319,15 +4353,13 @@ sub func_run_pickaxe {
 				smiles => $cpd->smiles(),
 				inchikey => $cpd->inchikey(),
 				reactions => $rxncounts->{$cpd->id()},
-				peaks => $peaks
+				peaks => $peaks,
+				generation => $generation
 			};
 			push(@{$datachannel->{template_data}->{compounds}},$cpddata);
 		}
 		for (my $i = 0; $i < @{$datachannel->{template_data}->{peaks}}; $i++) {
 			$datachannel->{template_data}->{overview}->{total_peaks}++;
-			my $modelseed = 0;
-			my $model = 0;
-			my $generated = 0;
 			my $peakid = $datachannel->{template_data}->{peaks}->[$i]->{id};
 			my $hithash = {
 				all => {},
@@ -4342,16 +4374,13 @@ sub func_run_pickaxe {
 						if ($datachannel->{peak_hits}->{all}->{allgen}->{$peakid}->{$type}->{$cpdid}->{numerical_attributes}->{generation} == 0) {
 							$hithash->{all}->{$cpdid} = 0;
 							$hithash->{Model}->{$cpdid} = 0;
-							$model = 1;
 						} elsif ($cpdid =~ m/cpd\d+/) {
 							$hithash->{all}->{$cpdid} = $datachannel->{peak_hits}->{all}->{allgen}->{$peakid}->{$type}->{$cpdid}->{numerical_attributes}->{generation};
 							$hithash->{"Pickaxe MS"}->{$cpdid} = $datachannel->{peak_hits}->{all}->{allgen}->{$peakid}->{$type}->{$cpdid}->{numerical_attributes}->{generation};
 							$hithash->{Pickaxe}->{$cpdid} = $datachannel->{peak_hits}->{all}->{allgen}->{$peakid}->{$type}->{$cpdid}->{numerical_attributes}->{generation};
-							$generated = 1;
 						} else {
 							$hithash->{all}->{$cpdid} = $datachannel->{peak_hits}->{all}->{allgen}->{$peakid}->{$type}->{$cpdid}->{numerical_attributes}->{generation};
 							$hithash->{Pickaxe}->{$cpdid} = $datachannel->{peak_hits}->{all}->{allgen}->{$peakid}->{$type}->{$cpdid}->{numerical_attributes}->{generation};
-							$generated = 1;
 						}
 					}
 				}
@@ -4360,17 +4389,8 @@ sub func_run_pickaxe {
 				foreach my $type (keys(%{$datachannel->{peak_hits}->{seed}->{allgen}->{$peakid}})) {
 					foreach my $cpdid (keys(%{$datachannel->{peak_hits}->{seed}->{allgen}->{$peakid}->{$type}})) {
 						$hithash->{ModelSEED}->{$cpdid} = 1;
-						$modelseed = 1;
 					}
 				}
-			}
-			if ($model == 1) {
-				$datachannel->{template_data}->{overview}->{peaks_hit_model}++;
-			} elsif ($generated == 1) {
-				$datachannel->{template_data}->{overview}->{peaks_hit_generated}++;
-			}
-			if ($modelseed == 1) {
-				$datachannel->{template_data}->{overview}->{peaks_hit_modelseed}++;
 			}
 			$datachannel->{template_data}->{peaks}->[$i]->{hits} = [];
 			my $types = ["Model","Pickaxe MS","Pickaxe","ModelSEED"];
@@ -6230,10 +6250,6 @@ sub check_for_peakmatch {
 			}
 			if (defined($metabolomics_data->{$type."_to_peaks"}->{$cpdatt})) {
 				foreach my $peakid (keys(%{$metabolomics_data->{$type."_to_peaks"}->{$cpdatt}})) {
-					my $hitcount = keys(%{$metabolomics_data->{$type."_to_peaks"}->{$cpdatt}});
-					if ($hitcount >= $max_hits_to_keep_per_peak) {
-						$cpddata->{numerical_attributes}->{redundant_hit} = ($hitcount+1);
-					}
 					push(@{$hit},$peakid);
 					if (!defined($cpddata->{dblinks}->{$dbkey})) {
 						$cpddata->{dblinks}->{$dbkey} = [];
@@ -6244,6 +6260,10 @@ sub check_for_peakmatch {
 						$cpd_hit->{all}->{$generation}->{$cpddata->{id}}->{$type}->{$peakid} = 1;
 						$peak_hit->{all}->{allgen}->{$peakid}->{$type}->{$cpddata->{id}} = $cpddata;
 						$peak_hit->{all}->{$generation}->{$peakid}->{$type}->{$cpddata->{id}} = $cpddata;
+						my $hitcount = keys(%{$peak_hit->{all}->{allgen}->{$peakid}->{$type}});
+						if ($hitcount >= $max_hits_to_keep_per_peak) {
+							$cpddata->{numerical_attributes}->{redundant_hit} = ($hitcount+1);
+						}
 					}
 					$cpd_hit->{$ruleset}->{allgen}->{$cpddata->{id}}->{$type}->{$peakid} = 1;
 					$cpd_hit->{$ruleset}->{$generation}->{$cpddata->{id}}->{$type}->{$peakid} = 1;
