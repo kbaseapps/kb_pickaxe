@@ -36,6 +36,7 @@
 [%  overview = data.overview;
     generations = data.generations;
     rules = data.rules;
+    peaks = data.peaks;
 %]
 			<table class="table table-striped table-bordered">
 				<tbody>
@@ -215,6 +216,69 @@ $(document).ready(function() {
             'id',
             'reactions'
         ],
+    },
+    peaks = {
+        data: [% peaks.json %],
+        cols: {
+            id: {
+                title: "ID",
+                data:   d => d.id,
+
+            },
+            mz: {
+                title: "M/Z",
+                data:   d => d.mz,
+
+            },
+            formula: {
+                title: "Formula",
+                data:   d => d.formula,
+
+            },
+            name: {
+                title: "Name",
+                data:   d => d.name,
+
+            },
+            smiles: {
+                title: "Smiles",
+                data:   d => d.smiles,
+
+            },
+            inchikey: {
+                title: "Inchikey",
+                data:   d => d.inchikey,
+
+            },
+            hits: {
+                title: "Hits",
+                render: ( data, type, d, meta ) => {
+                    return type === 'display'
+                        ? d.hits.join("<br>")
+                        : d.hits.join("|");
+                }
+
+            },
+            compounds: {
+                title: "Compounds",
+                data:   d => d.compounds,
+                render: ( data, type, d, meta ) => {
+                    return type === 'display'
+                        ? d.compounds.join("<br>")
+                        : d.compounds.join("|");
+                }
+            }
+        },
+        colOrder: [
+            'id',
+            'mz',
+            'formula',
+            'name',
+            'smiles',
+            'inchikey',
+            'hits',
+            'compounds'
+        ],
     }
 
     $('#nav-tab a').on('click', function (e) {
@@ -231,11 +295,16 @@ $(document).ready(function() {
         columns: generations.colOrder.map( e => generations.cols[ e ] ),
     } );
 
-	$('#table-rules').DataTable( {
-        buttons: [ 'copy', 'csv', 'excel' ],
+    $('#table-peaks').DataTable( {
+        data: Object.values( peaks.data ),
+        columns: peaks.colOrder.map( e => peaks.cols[ e ] ),
+    } );
+    
+    $('#table-rules').DataTable( {
         data: Object.values( rules.data ),
         columns: rules.colOrder.map( e => rules.cols[ e ] ),
     } );
+
 } );
 </script>
 </body>
