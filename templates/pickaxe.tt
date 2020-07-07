@@ -202,6 +202,11 @@ $(document).ready(function() {
     $('a[data-toggle="tab"]').on( 'shown.bs.tab', function (e) {
         $.fn.dataTable.tables( {visible: true, api: true} ).columns.adjust();
     } );
+
+	$('#table-generations').DataTable( {
+        data: Object.values( generations.data ),
+        columns: generations.colOrder.map( e => generations.cols[ e ] ),
+    } );
 } );
 </script>
 </body>
