@@ -3491,7 +3491,7 @@ sub func_run_pickaxe {
 	my ($params,$datachannel) = @_;
 	$params = Bio::KBase::utilities::args($params,["workspace","model_id"],{
 		rule_sets => ["enzymatic"],
-		generations => 3,
+		generations => 1,
 		prune => "none",
 		add_transport => 0,
 		out_model_id => $params->{model_id}.".pickax",
@@ -3511,6 +3511,10 @@ sub func_run_pickaxe {
 		condition => undef
 	});
 	#Setting generation if this is the first time calling the function
+	print "Parameters:\n";
+	foreach my $key (keys(%{$params})) {
+		print $key.":".$params->{$key}."\n";
+	}
 	my $first = 1;
 	if (!defined($datachannel->{currentgen})) {
 		$datachannel->{currentgen} = 1;
@@ -4255,7 +4259,7 @@ sub func_run_pickaxe {
 		}
 		#If more generations are desired, call this function again recursively
 		my $cpdcount = @{$datachannel->{fbamodel}->{modelcompounds}};
-		if ($datachannel->{currentgen} < $params->{generation} && $cpdcount < $params->{compound_limit}) {
+		if ($datachannel->{currentgen} < $params->{generations} && $cpdcount < $params->{compound_limit}) {
 			Bio::KBase::ObjectAPI::functions::func_run_pickaxe($params,$datachannel);
 		}
 	}

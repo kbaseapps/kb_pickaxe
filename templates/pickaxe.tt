@@ -208,16 +208,6 @@ $(document).ready(function() {
                 title: "Name",
                 data:   d => d.id,
             },
-            rule: {
-                title: "Rule",
-                data:   d => d.id,
-                render: ( data, type, d, meta ) => {
-                    if (type === 'display') {
-						return '<img id="operator-image" height="400" ng-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg" err-src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.svg" src="http://webfba.chem-eng.northwestern.edu/MINE_imgs/op_images/' + d.id + '.png">';
-                    }
-                    return d.id;
-                }
-            },
             reactions: {
                 title: "Reactions",
                 data:   d => d.reactions,
@@ -226,7 +216,6 @@ $(document).ready(function() {
         colOrder: [
             'ruleset',
             'id',
-            'rule',
             'reactions'
         ],
     },
