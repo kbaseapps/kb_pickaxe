@@ -25,8 +25,8 @@
 		<li><a class="nav-item nav-link" id="nav-generations-tab" data-toggle="tab" href="#nav-generations" role="tab" aria-controls="nav-generations" aria-selected="false">Generations</a> </li>
 		<li><a class="nav-item nav-link" id="nav-rules-tab" data-toggle="tab" href="#nav-rules" role="tab" aria-controls="nav-rules" aria-selected="false">Rules</a> </li>
 		<li><a class="nav-item nav-link" id="nav-peaks-tab" data-toggle="tab" href="#nav-peaks" role="tab" aria-controls="nav-peaks" aria-selected="false">Peaks</a> </li>
-		<li><a class="nav-item nav-link" id="nav-reactions-tab" data-toggle="tab" href="#nav-reactions" role="tab" aria-controls="nav-reactions" aria-selected="false">Reactions</a> </li>
 		<li><a class="nav-item nav-link" id="nav-compounds-tab" data-toggle="tab" href="#nav-compounds" role="tab" aria-controls="nav-compounds" aria-selected="false">Compounds</a> </li>
+		<li><a class="nav-item nav-link" id="nav-reactions-tab" data-toggle="tab" href="#nav-reactions" role="tab" aria-controls="nav-reactions" aria-selected="false">Reactions</a> </li>
 	</ul>
 	<div class="tab-content" id="nav-tabContent">
 		<div class="tab-pane fade show active" id="nav-overview" role="tabpanel" aria-labelledby="nav-overview-tab">
@@ -37,6 +37,7 @@
     generations = data.generations;
     rules = data.rules;
     peaks = data.peaks;
+    compounds = data.compounds;
     reactions = data.reactions;
 %]
 			<table class="table table-striped table-bordered">
@@ -315,6 +316,78 @@ $(document).ready(function() {
             'rules',
             'generation'
         ],
+    },
+    compounds = {
+        data: [% compounds.json %],
+        cols: {
+            id: {
+                title: "Compound",
+                data:   d => d.id,
+                render: ( data, type, d, meta ) => {
+                    if (type === 'display') {
+						if (d.msid) {
+							return '<a href="http://modelseed.org/biochem/compounds/' + d.msid + '">' + d.msid + '</a>';
+						} else {
+							return d.id;
+						}
+                    }
+                    return d.id;
+                }
+            },
+            name: {
+                title: "Name",
+                data:   d => d.name,
+
+            },
+            formula: {
+                title: "Formula",
+                data:   d => d.formula,
+
+            },
+            charge: {
+                title: "Charge",
+                data:   d => d.charge,
+
+            },
+            smiles: {
+                title: "Smiles",
+                data:   d => d.smiles,
+            },
+            inchikey: {
+                title: "Inchikey",
+                data:   d => d.inchikey,
+            },
+            reactions: {
+                title: "Reactions",
+                data:   d => d.reactions,
+
+            },
+            generation: {
+                title: "Generation",
+                data:   d => d.generation,
+
+            },
+            peaks: {
+                title: "Peaks",
+                data:   d => d.peaks,
+                render: ( data, type, d, meta ) => {
+                    return type === 'display'
+                        ? d.peaks.join(", ")
+                        : d.peaks.join("|");
+                }
+            }
+        },
+        colOrder: [
+            'id',
+            'name',
+            'formula',
+            'charge',
+            'smiles',
+            'inchikey',
+            'reactions',
+            'generation',
+            'peaks'
+        ],
     }
 
     $('#nav-tab a').on('click', function (e) {
@@ -344,6 +417,11 @@ $(document).ready(function() {
     $('#table-reactions').DataTable( {
         data: Object.values( reactions.data ),
         columns: reactions.colOrder.map( e => reactions.cols[ e ] ),
+    } );
+    
+    $('#table-compounds').DataTable( {
+        data: Object.values( compounds.data ),
+        columns: compounds.colOrder.map( e => compounds.cols[ e ] ),
     } );
 
 } );
