@@ -4294,12 +4294,14 @@ sub func_run_pickaxe {
 					$ruleshash->{$1}->{$2}++;
 				}
 			}
-			push(@{$datachannel->{template_data}->{reactions}},{
-				id => $rxn->id(),
-				equation => $rxn->definition(),
-				rules => $rxn->dblinks()->{PickAxe},
-				generation => $generation
-			});
+			if (@{$datachannel->{template_data}->{reactions}} < 100) {
+				push(@{$datachannel->{template_data}->{reactions}},{
+					id => $rxn->id(),
+					equation => $rxn->definition(),
+					rules => $rxn->dblinks()->{PickAxe},
+					generation => $generation
+				});
+			}
 		}
 		foreach my $ruleset (keys(%{$ruleshash})) {
 			foreach my $rule (keys(%{$ruleshash->{$ruleset}})) {
@@ -4360,7 +4362,9 @@ sub func_run_pickaxe {
 				peaks => $peaks,
 				generation => $generation
 			};
+			if (@{$datachannel->{template_data}->{compounds}} < 100) {
 			push(@{$datachannel->{template_data}->{compounds}},$cpddata);
+			}
 		}
 		for (my $i = 0; $i < @{$datachannel->{template_data}->{peaks}}; $i++) {
 			$datachannel->{template_data}->{overview}->{total_peaks}++;
