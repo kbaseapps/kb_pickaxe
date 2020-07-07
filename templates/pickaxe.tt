@@ -37,7 +37,7 @@
     generations = data.generations;
     rules = data.rules;
     peaks = data.peaks;
-    compounds = data.compounds;
+    reactions = data.reactions;
 %]
 			<table class="table table-striped table-bordered">
 				<tbody>
@@ -281,76 +281,39 @@ $(document).ready(function() {
             'compounds'
         ],
     },
-    compounds = {
-        data: [% compounds.json %],
+    reactions = {
+        data: [% reactions.json %],
         cols: {
             id: {
-                title: "Compound",
+                title: "Reaction",
                 data:   d => d.id,
+
+            },
+            equation: {
+                title: "Equation",
+                data:   d => d.equation,
+
+            },
+            rules: {
+                title: "Rules",
+                data:   d => d.rules,
                 render: ( data, type, d, meta ) => {
-                    if (type === 'display') {
-						if (d.msid) {
-							return '<a href="http://modelseed.org/biochem/compounds/' + d.msid + '">' + d.msid + '</a>';
-						} else {
-							return d.id;
-						}
-                    }
-                    return d.id;
+                    return type === 'display'
+                        ? d.rules.join(", ")
+                        : d.rules.join("|");
                 }
-            },
-            name: {
-                title: "Name",
-                data:   d => d.name,
-
-            },
-            formula: {
-                title: "Formula",
-                data:   d => d.formula,
-
-            },
-            charge: {
-                title: "Charge",
-                data:   d => d.charge,
-
-            },
-            smiles: {
-                title: "Smiles",
-                data:   d => d.smiles,
-            },
-            inchikey: {
-                title: "Inchikey",
-                data:   d => d.inchikey,
-            },
-            reactions: {
-                title: "Reactions",
-                data:   d => d.reactions,
-
             },
             generation: {
                 title: "Generation",
                 data:   d => d.generation,
 
-            },
-            peaks: {
-                title: "Peaks",
-                data:   d => d.peaks,
-                render: ( data, type, d, meta ) => {
-                    return type === 'display'
-                        ? d.peaks.join(", ")
-                        : d.peaks.join("|");
-                }
             }
         },
         colOrder: [
             'id',
-            'name',
-            'formula',
-            'charge',
-            'smiles',
-            'inchikey',
-            'reactions',
-            'generation',
-            'peaks'
+            'equation',
+            'rules',
+            'generation'
         ],
     }
 
@@ -377,10 +340,10 @@ $(document).ready(function() {
         data: Object.values( rules.data ),
         columns: rules.colOrder.map( e => rules.cols[ e ] ),
     } );
-    
-    $('#table-compounds').DataTable( {
-        data: Object.values( compounds.data ),
-        columns: compounds.colOrder.map( e => compounds.cols[ e ] ),
+
+    $('#table-reactions').DataTable( {
+        data: Object.values( reactions.data ),
+        columns: reactions.colOrder.map( e => reactions.cols[ e ] ),
     } );
 
 } );
