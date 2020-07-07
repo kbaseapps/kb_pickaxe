@@ -35,6 +35,7 @@
 			</h3>
 [%  overview = data.overview;
     generations = data.generations;
+    rules = data.rules;
 %]
 			<table class="table table-striped table-bordered">
 				<tbody>
@@ -192,6 +193,28 @@ $(document).ready(function() {
             "filtered_compounds",
             "filtered_reactions",
         ],
+    },
+    rules = {
+        data: [% rules.json %],
+        cols: {
+            ruleset: {
+                title: "Ruleset",
+                data:   d => d.ruleset,
+            },
+            id: {
+                title: "Name",
+                data:   d => d.id,
+            },
+            reactions: {
+                title: "Reactions",
+                data:   d => d.reactions,
+            },
+        },
+        colOrder: [
+            'ruleset',
+            'id',
+            'reactions'
+        ],
     }
 
     $('#nav-tab a').on('click', function (e) {
@@ -206,6 +229,12 @@ $(document).ready(function() {
 	$('#table-generations').DataTable( {
         data: Object.values( generations.data ),
         columns: generations.colOrder.map( e => generations.cols[ e ] ),
+    } );
+
+	$('#table-rules').DataTable( {
+        buttons: [ 'copy', 'csv', 'excel' ],
+        data: Object.values( rules.data ),
+        columns: rules.colOrder.map( e => rules.cols[ e ] ),
     } );
 } );
 </script>
