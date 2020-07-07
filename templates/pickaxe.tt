@@ -38,7 +38,6 @@
     rules = data.rules;
     peaks = data.peaks;
     compounds = data.compounds;
-    reactions = data.reactions;
 %]
 			<table class="table table-striped table-bordered">
 				<tbody>
@@ -282,41 +281,6 @@ $(document).ready(function() {
             'compounds'
         ],
     },
-    reactions = {
-        data: [% reactions.json %],
-        cols: {
-            id: {
-                title: "Reaction",
-                data:   d => d.id,
-
-            },
-            equation: {
-                title: "Equation",
-                data:   d => d.equation,
-
-            },
-            rules: {
-                title: "Rules",
-                data:   d => d.rules,
-                render: ( data, type, d, meta ) => {
-                    return type === 'display'
-                        ? d.rules.join(", ")
-                        : d.rules.join("|");
-                }
-            },
-            generation: {
-                title: "Generation",
-                data:   d => d.generation,
-
-            }
-        },
-        colOrder: [
-            'id',
-            'equation',
-            'rules',
-            'generation'
-        ],
-    },
     compounds = {
         data: [% compounds.json %],
         cols: {
@@ -412,11 +376,6 @@ $(document).ready(function() {
     $('#table-rules').DataTable( {
         data: Object.values( rules.data ),
         columns: rules.colOrder.map( e => rules.cols[ e ] ),
-    } );
-
-    $('#table-reactions').DataTable( {
-        data: Object.values( reactions.data ),
-        columns: reactions.colOrder.map( e => reactions.cols[ e ] ),
     } );
     
     $('#table-compounds').DataTable( {
