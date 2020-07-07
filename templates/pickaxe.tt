@@ -34,6 +34,7 @@
 				Overview of Pickaxe Expansion
 			</h3>
 [%  overview = data.overview;
+    generations = data.generations;
 %]
 			<table class="table table-striped table-bordered">
 				<tbody>
@@ -144,6 +145,55 @@
 <script>
 $(document).ready(function() {
     "use strict";
+    [%  USE JSON; %]
+    var generations = {
+        data: [% generations.json %],
+        cols: {
+            id: {
+                title: "Generation",
+                data:   d => d.id,
+            },
+            compounds: {
+                title: "Compounds",
+                data:   d => d.compounds,
+            },
+            reactions: {
+                title: "Reactions",
+                data:   d => d.reactions,
+            },
+            peaks: {
+                title: "Peaks",
+                data:   d => d.peaks,
+            },
+            compounds_with_peaks: {
+                title: "Compounds with Peaks",
+                data:   d => d.compounds_with_peaks,
+            },
+            modelseed_compounds: {
+                title: "ModelSEED Compounds",
+                data:   d => d.modelseed_compounds,
+            },
+            filtered_compounds: {
+                title: "Filtered Compounds",
+                data:   d => d.filtered_compounds,
+            },
+            filtered_reactions: {
+                title: "Filtered Reactions",
+                data:   d => d.filtered_reactions,
+            }
+        },
+        colOrder: [
+            "id",
+            "compounds",
+            "reactions",
+            "peaks",
+            "compounds_with_peaks",
+            "modelseed_compounds",
+            "filtered_compounds",
+            "filtered_reactions",
+        ],
+    }
+
     $('#nav-tab a').on('click', function (e) {
       e.preventDefault()
       $(this).tab('show')
@@ -152,7 +202,6 @@ $(document).ready(function() {
     $('a[data-toggle="tab"]').on( 'shown.bs.tab', function (e) {
         $.fn.dataTable.tables( {visible: true, api: true} ).columns.adjust();
     } );
-
 } );
 </script>
 </body>
