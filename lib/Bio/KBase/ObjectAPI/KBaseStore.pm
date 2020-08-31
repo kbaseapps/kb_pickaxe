@@ -61,6 +61,7 @@ use Class::Autouse qw(
 	Bio::KBase::ObjectAPI::KBaseOntology::Mapping
 	Bio::KBase::ObjectAPI::KBaseFBA::FBAModel
 	Bio::KBase::ObjectAPI::KBaseBiochem::BiochemistryStructures
+	Bio::KBase::ObjectAPI::KBaseBiochem::CompoundSet
 	Bio::KBase::ObjectAPI::KBaseFBA::Gapfilling
 	Bio::KBase::ObjectAPI::KBaseFBA::FBA
 	Bio::KBase::ObjectAPI::KBaseFBA::Gapgeneration
@@ -223,7 +224,7 @@ sub process_object {
 				}
 			}
 		}
-		if ($type eq "GenomeSet" || $type eq "AttributeMapping" || $type eq "AnnotatedMetagenomeAssembly" || $type eq "ChemicalAbundanceMatrix" || $type eq "BinnedContigs" || $type eq "Assembly" || $type eq "MediaSet" || $type eq "ExpressionMatrix" || $type eq "ProteomeComparison" || $options->{raw} == 1) {
+		if ($type eq "GenomeSet" || $type eq "AttributeMapping" || $type eq "AnnotatedMetagenomeAssembly" || $type eq "ChemicalAbundanceMatrix" || $type eq "BinnedContigs" || $type eq "Assembly" || $type eq "MediaSet" || $type eq "ExpressionMatrix" || $type eq "ProteomeComparison" || $type eq "CompoundSet" || $options->{raw} == 1) {
 			$self->cache()->{$ref} = $data;
 			$self->cache()->{$ref}->{_reference} = $info->[6]."/".$info->[0]."/".$info->[4];
 			$self->cache()->{$ref}->{_type} = $type;
