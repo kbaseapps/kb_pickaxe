@@ -5,23 +5,18 @@ import sys,json
 MSD_git_url = "https://raw.githubusercontent.com/ModelSEED/ModelSEEDDatabase/"
 MSD_commit = "v1.0"
 
-Biochem_Files = ["compounds.tsv",
-                 "reactions.tsv",
-                 "Aliases/Unique_ModelSEED_Reaction_ECs.txt",
-                 "Aliases/Unique_ModelSEED_Reaction_Names.txt",
-                 "Aliases/Unique_ModelSEED_Compound_Names.txt",
-                 "Aliases/Unique_ModelSEED_Reaction_Aliases.txt",
-                 "Aliases/Unique_ModelSEED_Compound_Aliases.txt",
-                 "Structures/Unique_ModelSEED_Structures.txt"]
-
 remote_file = urlopen(MSD_git_url+MSD_commit+"/Biochemistry/compounds.json")
+compounds = json.load(remote_file)
+
 with open("Compounds.json",'w') as local_file:
-    for line in remote_file.readlines():
-        line=line.decode('utf-8')
-        local_file.write(line)
+    json.dump(compounds, local_file, indent=4, sort_keys=True)
 
 remote_file = urlopen(MSD_git_url+MSD_commit+"/Biochemistry/reactions.json")
+reactions = json.load(remote_file)
+
+for reaction in reactions:
+    cpd_ids = reaction['compound_ids'].split(';')
+    reaction['compound_ids']=cpd_ids
+
 with open("Reactions.json",'w') as local_file:
-    for line in remote_file.readlines():
-        line=line.decode('utf-8')
-        local_file.write(line)
+    json.dump(reactions, local_file, indent=4, sort_keys=True)
