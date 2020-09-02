@@ -3902,7 +3902,7 @@ sub func_run_pickaxe {
 			if ($params->{prune} eq 'model') {
 				$command .= ' -p '.$directory.'/inputModel.tsv';
 			} elsif ($params->{prune} eq 'biochemistry') {
-				$command .= ' -p '.Bio::KBase::utilities::conf("kb_pickaxe","pickaxe_path").'/data/Compounds.json';
+				$command .= ' -p '.Bio::KBase::utilities::conf("kb_pickaxe","biochem_path").'/Compounds.json';
 			}
 			#Running pickax
 			system($command);
