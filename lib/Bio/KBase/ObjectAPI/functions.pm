@@ -3688,7 +3688,7 @@ sub func_run_pickaxe {
 			}
 			#Checking SEED database for metabolomics matches
 			Bio::KBase::ObjectAPI::functions::check_for_peakmatch($datachannel->{metabolomics_data},$datachannel->{cpd_hits},$datachannel->{peak_hits},$data,0,"seed",1,$datachannel->{KBaseMetabolomicsObject});
-			if (defined($data->{dblinks}->{$datachannel->{KBaseMetabolomicsObject}})) {
+			if (defined($data->{dblinks}) && defined($data->{dblinks}->{$datachannel->{KBaseMetabolomicsObject}})) {
 				$datachannel->{template_data}->{overview}->{modelseed_hit_peaks}++;
 			}
 		}
@@ -4076,10 +4076,14 @@ sub func_run_pickaxe {
 					if (!defined($datachannel->{cpdhash}->{$id})) {
 						$cpddata->{formula} = $formula;
 						$datachannel->{cpdhash}->{$id} = $cpddata;
-						if (defined($datachannel->{targethash}->{$cpddata->{smiles}}) ||
-							$array->[1] eq "Coreactant" || defined($input_ids->{$id}) ||
-							($params->{keep_seed_hits} == 1 && $id =~ /cpd\d+/) ||
-							($params->{keep_metabolomic_hits} == 1 && defined($cpddata->{dblinks}->{$datachannel->{MetabolomicsDBLINKSKey}}) && !defined($cpddata->{numerical_attributes}->{redundant_hit}))) {
+						if (defined($datachannel->{targethash}) && defined($cpddata->{smiles}) && \
+						    defined($datachannel->{targethash}->{$cpddata->{smiles}}) ||
+						    $array->[1] eq "Coreactant" || defined($input_ids->{$id}) ||
+						    (defined($params->{keep_seed_hits}) && $params->{keep_seed_hits} == 1 && $id =~ /cpd\d+/) || \
+						    (defined($params->{keep_metabolomic_hits}) && $params->{keep_metabolomic_hits} == 1 && \
+						     defined($cpddata->{dblinks}) && defined($datachannel->{MetabolomicsDBLINKSKey}) && \
+						     defined($cpddata->{dblinks}->{$datachannel->{MetabolomicsDBLINKSKey}}) && \
+						     !defined($cpddata->{numerical_attributes}->{redundant_hit}))) {
 							$newcpdcount++;
 							push(@{$datachannel->{fbamodel}->{modelcompounds}},$cpddata);
 							$cpddata->{numerical_attributes}->{generation} = $datachannel->{currentgen};
@@ -4342,7 +4346,7 @@ sub func_run_pickaxe {
 				$datachannel->{template_data}->{generations}->[$generation]->{modelseed_compounds}++;
 			}
 			my $peaks = [];
-			if (defined($cpd->dblinks()->{$datachannel->{MetabolomicsDBLINKSKey}})) {
+			if (defined($cpd->{dblinks}) && defined($datachannel->{MetabolomicsDBLINKSKey}) && defined($cpd->dblinks()->{$datachannel->{MetabolomicsDBLINKSKey}})) {
 				$datachannel->{template_data}->{generations}->[$generation]->{compounds_with_peaks}++;
 				$peaks = $cpd->dblinks()->{$datachannel->{MetabolomicsDBLINKSKey}};
 				if ($generation == 0) {

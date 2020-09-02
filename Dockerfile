@@ -8,6 +8,7 @@ MAINTAINER KBase Developer
 RUN apt-get update
 COPY ./cpanfile /kb/module/cpanfile
 WORKDIR /kb/module
+RUN cpanm --reinstall JSON::XS
 RUN cpanm -f --installdeps .
 RUN apt-get -y install nano
 
@@ -20,8 +21,11 @@ RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh
 
+RUN conda update conda
+RUN conda install python=3.7
 RUN conda config --add channels  https://conda.anaconda.org/rdkit
-RUN conda install -y cairo \
+RUN conda install -y zlib \
+		     cairo \
                      nomkl \
                      pandas \
                      pymongo \

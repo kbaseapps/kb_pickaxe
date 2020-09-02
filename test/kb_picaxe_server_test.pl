@@ -46,7 +46,7 @@ sub save_json_to_ws{
     }
     my $data = decode_json($Cjson);
     my $ret = $ws_client->save_objects({
-        workspace => "jjeffryes:narrative_1501623862202", #"janakakbase:narrative_1498509337193"
+        workspace => get_ws_name(), #"jjeffryes:narrative_1501623862202", #"janakakbase:narrative_1498509337193"
         objects   => [ {
             type => $fileType,
             name => $data->{name},
@@ -62,7 +62,7 @@ print("Data loaded\n");
 
 lives_ok{
     $impl->runpickaxe( {
-        workspace => "jjeffryes:narrative_1501623862202",#get_ws_name(),
+        workspace => get_ws_name(), #"jjeffryes:narrative_1501623862202"
         model_id => "iMR1_799",
         out_model_id => "spont_out",
         rule_set => "spontaneous",
@@ -73,7 +73,7 @@ lives_ok{
 };
 lives_ok{
     $impl->runpickaxe( {
-        workspace => "jjeffryes:narrative_1501623862202",#get_ws_name(),
+        workspace => get_ws_name(), #"jjeffryes:narrative_1501623862202",#get_ws_name(),
         model_id => "model_set",
         out_model_id => "enz_out",
         rule_set => "enzymatic",
@@ -84,7 +84,7 @@ lives_ok{
 };
 lives_ok{
     $impl->runpickaxe( {
-        workspace => "jjeffryes:narrative_1501623862202",#get_ws_name(),
+        workspace => get_ws_name(), #"jjeffryes:narrative_1501623862202",#get_ws_name(),
         model_id => "iMR1_799",
         out_model_id => "retro_out",
         rule_set => "retro_rules_dia2",
@@ -94,19 +94,6 @@ lives_ok{
     })
 };
 
-=head
-lives_ok{
-    $impl->runpickaxe( {
-        workspace => "janakakbase:narrative_1498509337193",#get_ws_name(),
-        model_id => "model_set",
-        out_model_id => "retro_out",
-        rule_set => "retro_rules_dia2",
-        generations => 1,
-        prune => 'model',
-        add_transport => 1,
-    })
-};
-=cut
 my $err = undef;
 if ($@) {
     $err = $@;
